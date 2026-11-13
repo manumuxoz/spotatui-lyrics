@@ -1,0 +1,19 @@
+# Editor and OS noise
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Test and build output
+*.log
+*.out
+.luacheckcache
+tmp/
+build/
+dist/
+coverage/
+
+# Local environments
+.venv/
+node_modules/

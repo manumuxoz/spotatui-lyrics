@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a crash, a wrong match or a screen/key problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please do not paste full song lyrics: they are copyrighted. The `i` debug popup and the `[ytlyrics]` log lines are usually enough.
+  - type: input
+    id: spotatui
+    attributes:
+      label: spotatui version
+      description: Output of `spotatui --version`
+      placeholder: spotatui 0.48.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and terminal
+      placeholder: Arch Linux, Kitty; macOS, iTerm2; Windows 11, Windows Terminal
+    validations:
+      required: true
+  - type: input
+    id: track
+    attributes:
+      label: YouTube URL or track
+      description: A URL is the best reproduction; the title/channel alone can be ambiguous.
+      placeholder: https://www.youtube.com/watch?v=...
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: debug
+    attributes:
+      label: Debug output
+      description: Text from the `i` popup (or `SPOTATUI_LYRICS_DEBUG=1` log lines). Remove secrets before pasting.
+      render: text
+  - type: input
+    id: providers
+    attributes:
+      label: Providers
+      description: The value of `SPOTATUI_LYRICS_PROVIDERS` if you changed it.
+      placeholder: lrclib,genius
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I restarted spotatui after installing or updating the plugin.
+          required: true
+        - label: I reproduced with the latest spotatui 0.48+.
+          required: true

@@ -1,0 +1,52 @@
+local util = require("ytlyrics.util")
+
+test("util trims and collapses whitespace", function()
+  assert_eq(util.trim("  hello  "), "hello")
+  assert_eq(util.collapse_ws("a   b\n c"), "a b c")
+end)
+
+test("util folds accents and punctuation for matching", function()
+  assert_eq(util.normalize("Tití Me Preguntó"), "titi me pregunto")
+  assert_eq(util.normalize("Don't Stop Me Now"), "dont stop me now")
+  assert_eq(util.normalize("Earth, Wind & Fire"), "earth wind and fire")
+  assert_eq(util.normalize_title("The Beatles"), "beatles")
+end)
+
+test("util urlencodes UTF-8 bytes", function()
+  assert_eq(util.urlencode("Tití Me Preguntó"), "Tit%C3%AD%20Me%20Pregunt%C3%B3")
+  assert_eq(util.urlencode("a/b?c=d&e"), "a%2Fb%3Fc%3Dd%26e")
+end)
+
+test("util decodes HTML entities", function()
+  assert_eq(util.html_unescape("&amp; &#39; &#x27; &nbsp; &quot;"), "& ' '   \"")
+  assert_eq(util.html_unescape("&unknown;"), "&unknown;")
+end)
+
+test("util shortens by UTF-8 characters", function()
+  assert_eq(util.shorten("abcdef", 4), "abc…")
+  assert_eq(util.shorten("abc", 4), "abc")
+end)
+
+test("util formats milliseconds", function()
+  assert_eq(util.fmt_ms(0), "0:00")
+  assert_eq(util.fmt_ms(249000), "4:09")
+  assert_eq(util.fmt_ms(3661000), "61:01")
+end)
+
+test("util split and dedupe", function()
+  local parts = util.split("a - b - c", " - ", 2)
+  assert_eq(#parts, 2)
+  assert_eq(parts[1], "a")
+  assert_eq(parts[2], "b - c")
+
+  local unique = util.dedupe({ "a", "a", "b" })
+  assert_eq(#unique, 2)
+  assert_eq(unique[1], "a")
+  assert_eq(unique[2], "b")
+end)
+
+test("util treats JSON null userdata as null", function()
+  assert_true(util.is_null(io.stdout))
+  assert_false(util.is_null(nil))
+  assert_false(util.is_null("x"))
+end)
