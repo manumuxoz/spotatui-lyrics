@@ -180,7 +180,7 @@ Providers never render and never decide the final answer; the engine scores and 
 
 A single 150 ms interval updates the screen; the render key avoids redundant `set_screen` calls when neither the line, the status, the offset nor the progress second changed. `set_screen` is wrapped in `pcall` so a malformed widget cannot disable the timer.
 
-Keys are handled in `on_key`; `Esc`/`q` are global. `Enter` is consumed globally, so seek uses `s`. `B` is consumed globally, hence the documented remap. `t` calibrates the selected line to the current progress; `,`/`.` are 50 ms nudges, `[`/`]` 250 ms, `{`/`}` 1 s, `0` resets.
+Keys are handled in `on_key`; `Esc`/`q` are global. `Enter` is consumed globally, so seek uses `s`. `B`/`ctrl+b` are consumed globally, hence the documented remap to `B` + `ctrl+b` with the built-in moved to `F2`. `t` calibrates the selected line to the current progress; `,`/`.` are 50 ms nudges, `[`/`]` 250 ms, `{`/`}` 1 s, `0` resets.
 
 ## Why not `spotatui.get_lyrics`?
 

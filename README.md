@@ -82,19 +82,20 @@ plugin_commands:
 
 Restart spotatui. Press `ctrl-l` on any YouTube track.
 
-### Use `B` (the built-in lyrics key)
+### Use `B` and `ctrl+b`
 
-`B` is already bound to spotatui's built-in `lyrics_view`, so a plugin binding on `B` is ignored. To make this screen the default lyrics key, move the built-in view first:
+`B` and `ctrl+b` are consumed by spotatui's built-in `lyrics_view` by default. Move that view out of the way and bind both keys to the plugin:
 
 ```yaml
 keybindings:
-  lyrics_view: "ctrl-b"
+  lyrics_view: "f2"
 
 plugin_commands:
   ytlyrics_open: "B"
+  ytlyrics_open_alt: "ctrl-b"
 ```
 
-Restart after changing the config. If you only add `ytlyrics_open: "B"` without moving `lyrics_view`, spotatui logs a warning and skips the binding.
+Now `B` and `ctrl+b` both open the plugin screen; `F2` keeps the built-in view as a fallback. Restart after changing the config. If you leave `lyrics_view` on `B`/`ctrl-b`, spotatui logs a warning and skips the colliding plugin binding.
 
 ## Keys
 

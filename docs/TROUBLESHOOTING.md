@@ -47,12 +47,13 @@ If you installed by symlink, check that the symlink target still exists.
 
 ## Key does nothing
 
-- `B` is the built-in `lyrics_view`; a plugin command bound to `B` is skipped. Move `lyrics_view` first:
+- `B` and `ctrl+b` are the built-in `lyrics_view` keys; a plugin command bound to them is skipped. Move `lyrics_view` first and bind both plugin keys:
   ```yaml
   keybindings:
-    lyrics_view: "ctrl-b"
+    lyrics_view: "f2"
   plugin_commands:
     ytlyrics_open: "B"
+    ytlyrics_open_alt: "ctrl-b"
   ```
 - The command name must be exactly `ytlyrics_open`.
 - Reserved keys (`H`, `M`, `L`, arrows, `Backspace`, `Enter`) cannot be bound to plugin commands.

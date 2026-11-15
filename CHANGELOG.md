@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.2] - 2026-11-15
+
+### Added
+
+- `ytlyrics_open_alt` command. The recommended config now binds both `B` and `ctrl+b` to the plugin screen, with the built-in view moved to `F2`.
+
+### Changed
+
+- `ctrl+b`, the built-in lyrics key, now opens the plugin screen when the recommended config is applied; the old built-in view remains available on `F2`.
+
 ## [0.2.1] - 2026-11-15
 
 ### Added

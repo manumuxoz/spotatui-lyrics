@@ -35,17 +35,18 @@ plugin_commands:
 
 Reinicia spotatui y pulsa `ctrl-l` con un tema de YouTube sonando.
 
-Para usar `B`, primero mueve la vista integrada:
+Para usar `B` y `ctrl+b`, mueve la vista integrada y asigna las dos teclas al plugin:
 
 ```yaml
 keybindings:
-  lyrics_view: "ctrl-b"
+  lyrics_view: "f2"
 
 plugin_commands:
   ytlyrics_open: "B"
+  ytlyrics_open_alt: "ctrl-b"
 ```
 
-Si no mueves `lyrics_view`, spotatui ignora el binding de `B` con un aviso en el log.
+Ahora `B` y `ctrl+b` abren la pantalla del plugin; `F2` deja la vista integrada como respaldo. Reinicia después de cambiar la configuración. Si dejas `lyrics_view` en `B`/`ctrl+b`, spotatui avisa en el log y descarta el binding del plugin que colisiona.
 
 ## Teclas
 
