@@ -68,6 +68,8 @@ Ahora `B` y `ctrl+b` abren la pantalla del plugin; `F2` deja la vista integrada 
 
 El seguimiento se reanuda solo 8 segundos después del último scroll. El desfase se guarda por ID de vídeo y sobrevive al reinicio.
 
+Para calibrar exacto, pausa o salta al momento en que empieza la línea, selecciónala con `j`/`k` y pulsa `t`. Mientras reproduce, el plugin compensa automáticamente el retraso de un tick.
+
 ## Proveedores
 
 | Proveedor | Timestamps | Cuenta | Estado | Por defecto |

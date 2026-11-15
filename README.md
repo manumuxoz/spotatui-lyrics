@@ -117,6 +117,8 @@ Now `B` and `ctrl+b` both open the plugin screen; `F2` keeps the built-in view a
 
 Auto-follow resumes by itself 8 seconds after the last scroll. The offset is stored per YouTube video ID.
 
+For an exact calibration, pause or seek to the moment the line starts, select that line with `j`/`k`, and press `t`. While playing, the plugin compensates for its one-tick playback snapshot delay automatically.
+
 ## How it works
 
 ```
