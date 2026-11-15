@@ -180,7 +180,7 @@ The engine keeps:
 - the best **plain** result (`total >= 0.68`),
 - the best low-confidence result (`total >= 0.55`, shown with a warning).
 
-A synced result is preferred when it is within 0.08 of the best plain result. A high-confidence synced result stops the chain; a plain result of 0.85 or more stops it once all providers for that query have been tried. `m` cycles the metadata query variants; `r` resets to variant 1 and retries.
+A synced result is preferred when it is within 0.08 of the best plain result. A high-confidence synced result stops the race; a plain result of 0.85 or more stops it once all providers for that query have been tried. `m` cycles the metadata query variants; `r` resets to variant 1 and retries.
 
 ## Adding a provider
 

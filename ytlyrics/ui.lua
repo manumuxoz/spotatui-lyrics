@@ -405,6 +405,17 @@ function UI:progress_widget(pb)
   }
 end
 
+function UI:controls_line(pb)
+  local theme = self:theme()
+  local text = "p prev  ·  space play/pause  ·  n next  ·  < > seek"
+  if not pb or not pb.track then
+    text = ""
+  end
+  return {
+    { text = text, fg = theme.playbar_text or theme.inactive or "DarkGray", italic = true },
+  }
+end
+
 function UI:footer_lines()
   local state = self.engine.state
   local parts = {
@@ -463,6 +474,7 @@ function UI:render(force)
   local widgets = {
     { type = "paragraph", height = 2, scroll = false, lines = self:header_lines(pb) },
     { type = "paragraph", scroll = false, lines = self:body_lines(pb) },
+    { type = "paragraph", height = 1, scroll = false, lines = self:controls_line(pb) },
     self:progress_widget(pb),
     { type = "paragraph", height = 2, scroll = false, lines = self:footer_lines() },
   }

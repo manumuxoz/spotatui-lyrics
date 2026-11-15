@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.1] - 2026-11-15
+
+### Added
+
+- Playback-control hint row above the progress line (`p` prev, `space` play/pause, `n` next, `<`/`>` seek), closer to the main playbar.
+
+### Changed
+
+- Documentation now consistently describes the provider race and the playbar-style progress line.
+
 ## [0.2.0] - 2026-11-15
 
 ### Added

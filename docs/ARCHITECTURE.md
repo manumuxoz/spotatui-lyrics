@@ -39,7 +39,7 @@ ytlyrics/
   score.lua              similarity, duration and combined match scoring
   http.lua               thin async wrapper + JSON decoding/body limits
   cache.lua              bounded in-memory LRU
-  engine.lua             lookup state machine, provider chain, cancellation
+  engine.lua             lookup state machine, provider race, cancellation
   ui.lua                 custom screen, keys, gauge, offset, debug popup
   i18n.lua               English/Spanish UI strings
   providers/
@@ -127,7 +127,7 @@ Default weights: title 55%, artist 25%, duration 20%. When the query artist is e
 
 Durations more than 15/30/60 s away are penalized (0.9/0.75/0.6) because a longer album version's timestamps do not fit a YouTube edit.
 
-A result is accepted when the total is at least 0.68 (plain) or a synced result is close enough to the best plain result. A low-confidence result (>= 0.55) is still shown with a warning rather than showing nothing. A high-confidence synced result stops the chain early; a strong plain result stops it after all providers for the current query have been tried.
+A result is accepted when the total is at least 0.68 (plain) or a synced result is close enough to the best plain result. A low-confidence result (>= 0.55) is still shown with a warning rather than showing nothing. A high-confidence synced result stops the race early; a strong plain result stops it after all providers for the current query have been tried.
 
 ## Providers
 
@@ -176,7 +176,7 @@ Providers never render and never decide the final answer; the engine scores and 
 
 - fixed header (track + provider/status/offset/match),
 - lyric window (`2 * context + 1` lines, current line highlighted with `▸`, past lines dim),
-- a playbar-shaped progress row (`⣿`/`⣉` halves, time, remaining) and a two-line footer.
+- a playback-control hint row, a playbar-shaped progress row (`⣿`/`⣉` halves, time, remaining) and a two-line footer.
 
 A single 150 ms interval updates the screen; the render key avoids redundant `set_screen` calls when neither the line, the status, the offset nor the progress second changed. `set_screen` is wrapped in `pcall` so a malformed widget cannot disable the timer.
 
@@ -199,7 +199,7 @@ YouTube Music's InnerTube API has better `videoId` matching and often has timest
 - Every event handler is wrapped by `main.lua`'s `guard`; a transient error logs instead of permanently disabling the event.
 - The UI timer wraps its body in `pcall`.
 - Provider callbacks never raise to the engine: parsing is protected and errors become `errors[]`.
-- A provider error is displayed only in the debug popup, not as a modal; the chain continues with the next provider.
+- A provider error is displayed only in the debug popup, not as a modal; the other providers continue racing.
 - HTTP bodies are capped before JSON decoding (`SPOTATUI_LYRICS_MAX_BODY`).
 
 ## Testing

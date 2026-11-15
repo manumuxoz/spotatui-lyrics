@@ -21,6 +21,7 @@
 │  More placeholder text for the screenshot                    │
 │  ...                                                         │
 │                                                              │
+│ p prev  ·  space play/pause  ·  n next  ·  < > seek          │
 │ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉ 0:35 / 3:33 -2:58              │
 │ j/k · f · s · t · [ ] · , . · m · r · i · Esc                │
 │ Genius · match 1/4 · following                               │
@@ -51,7 +52,7 @@ There was no existing spotatui lyrics plugin that solved this when the project w
 - **Fast first paint**: providers race in parallel and the first usable answer is shown immediately; a synced answer upgrades it if one arrives later.
 - **Readable plain lyrics when no provider has timestamps**, with a clearly labelled estimated timeline.
 - **YouTube metadata repair** with multi-language noise tags (English, Spanish, Portuguese, Korean/Japanese title shapes).
-- **Provider chain** with per-provider parsing and graceful failure.
+- **Provider race** with per-provider parsing and graceful failure.
 - **Match variants** (`m`): if the parser split the title wrong, try the next query without editing anything.
 - **Timing calibration** (`t`): aligns the selected line with the current playback position in one keypress. Fine nudges (`,` / `.`), 250 ms steps, 1 s steps and reset are available; the offset is remembered per video.
 - **Seek to a line** (`s`): jumps playback to the selected line.
