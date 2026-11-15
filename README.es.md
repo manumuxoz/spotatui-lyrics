@@ -143,7 +143,7 @@ cp ~/.local/bin/spotatui ~/.local/bin/spotatui-0.48.0-original
 cp /tmp/opencode/spotatui-patched/target/release/spotatui ~/.local/bin/spotatui
 ```
 
-Pon `behavior.disable_auto_update: true` para que una actualización oficial no reemplace el binario parcheado. El parche dibuja la playbar existente debajo de cada pantalla de plugin (las mismas funciones que usa la vista de letras integrada) y expone `config().behavior.native_playbar = true`; el plugin entonces oculta su barra de respaldo y deja visible la playbar real.
+Pon `behavior.disable_auto_update: true` para que una actualización oficial no reemplace el binario parcheado. El parche dibuja la playbar existente debajo de cada pantalla de plugin (las mismas funciones que usa la vista de letras integrada), expone `config().behavior.native_playbar = true` y hace que las vistas de pantalla completa (letras, visualizador, mini-player, portada u otra pantalla de plugin) se **reemplacen** entre sí en vez de apilarse; `q` vuelve a la pantalla desde la que abriste la vista.
 
 Sin el parche, el plugin sigue funcionando con su línea de progreso compacta. La release `v0.4.2` incluye un binario Linux x86_64 ya compilado y `SHA256SUMS`.
 

@@ -27,6 +27,7 @@ fi
 rm -rf "$dest"
 git clone --depth 1 --branch "$version" https://github.com/LargeModGames/spotatui "$dest"
 git -C "$dest" apply "$root/patches/0001-playbar-on-plugin-screens.patch"
+git -C "$dest" apply "$root/patches/0002-replace-fullscreen-views.patch"
 
 cd "$dest"
 cargo build --release --features "scripting,youtube,local-files,subsonic,internet-radio,qobuz,soloist,cover-art,mcp-server,ai-dj,mpris,discord-rpc,self-update,audio-viz,audio-viz-cpal,queue,queue-download"

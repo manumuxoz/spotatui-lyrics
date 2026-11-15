@@ -13,7 +13,12 @@ of taking the whole terminal.
   configuration snapshot, so `spotatui-lyrics` hides its fallback progress row
   and lets the real playbar render.
 
-It applies cleanly to spotatui **v0.48.0**.
+Both patches apply cleanly to spotatui **v0.48.0**:
+
+- `0001-playbar-on-plugin-screens.patch` — draw the existing playbar below plugin screens.
+- `0002-replace-fullscreen-views.patch` — lyrics, visualizer, mini-player, cover art and plugin screens replace each other in the navigation stack instead of stacking, so `q` returns straight to the menu.
+
+`0002` also includes a unit test (`fullscreen_viewers_replace_each_other`).
 
 ## Build
 

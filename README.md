@@ -228,7 +228,8 @@ cp /tmp/opencode/spotatui-patched/target/release/spotatui ~/.local/bin/spotatui
 Set `behavior.disable_auto_update: true` in your config so an official update does not replace the patched binary. The patch:
 
 - renders the existing playbar below every plugin screen, using `fullscreen_view_layout` + `draw_playbar` (the same functions the built-in lyrics view uses);
-- exposes `config().behavior.native_playbar = true` so this plugin hides its fallback controls and leaves the real playbar visible.
+- exposes `config().behavior.native_playbar = true` so this plugin hides its fallback controls and leaves the real playbar visible;
+- replaces the current full-screen viewer when switching between lyrics, visualizer, mini-player, cover art or another plugin screen, instead of stacking a new route. `q` returns to the screen you opened the viewer from.
 
 The patch is in [`patches/0001-playbar-on-plugin-screens.patch`](patches/0001-playbar-on-plugin-screens.patch) and builds against spotatui `v0.48.0`. Release `v0.4.2` also ships a prebuilt Linux x86_64 binary and `SHA256SUMS`. Without the patch the plugin still works, with its compact fallback progress line.
 

@@ -1,0 +1,89 @@
+diff --git a/src/core/app/route.rs b/src/core/app/route.rs
+index 42c0e84..9fc5e8a 100644
+--- a/src/core/app/route.rs
++++ b/src/core/app/route.rs
+@@ -322,23 +322,57 @@ impl App {
+     }
+   }
+ 
++  /// Full-screen viewer routes are mutually exclusive: moving from one to
++  /// another (lyrics -> visualizer -> lyrics) replaces the current frame
++  /// instead of stacking another one. `q` then returns to the screen the
++  /// viewer was opened from, not through every viewer visited in between.
++  fn is_viewer_route(route: &RouteId) -> bool {
++    matches!(
++      route,
++      RouteId::Analysis
++        | RouteId::LyricsView
++        | RouteId::CoverArtView
++        | RouteId::MiniPlayer
++        | RouteId::PluginScreen(_)
++    )
++  }
++
+   // The navigation_stack actually only controls the large block to the right of `library` and
+   // `playlists`
+   pub fn push_navigation_stack(&mut self, next_route_id: RouteId, next_active_block: ActiveBlock) {
+     info!("navigating to {:?}", next_route_id);
+-    if !self
++    if self
+       .navigation_stack
+       .last()
+       .map(|last_route| last_route.id == next_route_id)
+       .unwrap_or(false)
+     {
+-      self.navigation_stack.push(Route {
+-        id: next_route_id,
+-        active_block: next_active_block,
+-        hovered_block: next_active_block,
+-      });
+-      self.display_revisions.bump(DisplayDomain::Route);
++      return;
+     }
++
++    let replace_viewer = self
++      .navigation_stack
++      .last()
++      .map(|last_route| Self::is_viewer_route(&last_route.id))
++      .unwrap_or(false)
++      && Self::is_viewer_route(&next_route_id);
++    if replace_viewer {
++      if let Some(last_route) = self.navigation_stack.last_mut() {
++        info!("replacing fullscreen view with {:?}", next_route_id);
++        last_route.id = next_route_id;
++        last_route.active_block = next_active_block;
++        last_route.hovered_block = next_active_block;
++        self.display_revisions.bump(DisplayDomain::Route);
++      }
++      return;
++    }
++
++    self.navigation_stack.push(Route {
++      id: next_route_id,
++      active_block: next_active_block,
++      hovered_block: next_active_block,
++    });
++    self.display_revisions.bump(DisplayDomain::Route);
+   }
+ 
+   pub fn pop_navigation_stack(&mut self) -> Option<Route> {
+@@ -710,6 +744,19 @@ mod tests {
+     assert_eq!(route_rev(&app), rev + 1);
+   }
+ 
++  #[test]
++  fn fullscreen_viewers_replace_each_other() {
++    let mut app = make_app_simple();
++    app.push_navigation_stack(RouteId::LyricsView, ActiveBlock::LyricsView);
++    app.push_navigation_stack(RouteId::Analysis, ActiveBlock::Analysis);
++    app.push_navigation_stack(RouteId::PluginScreen("lyrics".to_string()), ActiveBlock::PluginScreen);
++    app.push_navigation_stack(RouteId::LyricsView, ActiveBlock::LyricsView);
++    assert_eq!(app.get_current_route().id, RouteId::LyricsView);
++    assert_eq!(app.navigation_stack.len(), 2);
++    app.pop_navigation_stack();
++    assert_eq!(app.get_current_route().id, RouteId::Home);
++  }
++
+   #[test]
+   fn popping_a_route_bumps_the_route_revision_and_popping_the_last_does_not() {
+     let mut app = make_app_simple();

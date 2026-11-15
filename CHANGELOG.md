@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.3] - 2026-11-15
+
+### Fixed
+
+- Switching between full-screen viewers (lyrics, visualizer, mini-player, cover art and plugin screens) now replaces the current viewer instead of pushing another route. `q` returns directly to the screen the viewer was opened from.
+- Added `patches/0002-replace-fullscreen-views.patch` and a unit test for the navigation-stack behavior.
+
 ## [0.4.2] - 2026-11-15
 
 ### Fixed
