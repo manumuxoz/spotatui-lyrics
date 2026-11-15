@@ -51,6 +51,16 @@ function UI:behavior()
   return type(config.behavior) == "table" and config.behavior or {}
 end
 
+--- True when the running spotatui build draws the real global playbar below
+--- plugin screens (the patched build in patches/). Without it the plugin keeps
+--- its compact fallback controls.
+function UI:native_playbar()
+  local ok, config = pcall(spotatui.config)
+  return ok and type(config) == "table"
+    and type(config.behavior) == "table"
+    and config.behavior.native_playbar == true
+end
+
 function UI:current_track()
   local pb = spotatui.playback()
   if pb and type(pb.track) == "table" then
@@ -429,6 +439,7 @@ function UI:footer_lines()
     meta[#meta + 1] = state.provider
   end
   meta[#meta + 1] = i18n.t("match") .. " " .. tostring(state.variant or 1) .. "/" .. tostring(state.variant_count or 1)
+  meta[#meta + 1] = i18n.t("offset") .. " " .. string.format("%+d ms", state.offset_ms or 0)
   meta[#meta + 1] = self.follow and i18n.t("follow") or i18n.t("follow_paused")
   if state.searching then
     meta[#meta + 1] = i18n.t("searching_synced")
@@ -468,19 +479,30 @@ function UI:render(force)
     tostring(#(state.lines or {})),
     tostring(progress_second),
     tostring(state.lines and state.lines[1] and state.lines[1].text or ""),
+    tostring(self:native_playbar()),
   }, "|")
   if not force and key == self.last_render_key then
     return
   end
   self.last_render_key = key
 
-  local widgets = {
-    { type = "paragraph", height = 2, scroll = false, lines = self:header_lines(pb) },
-    { type = "paragraph", scroll = false, lines = self:body_lines(pb) },
-    { type = "paragraph", height = 1, scroll = false, lines = self:controls_line(pb) },
-    self:progress_widget(pb),
-    { type = "paragraph", height = 2, scroll = false, lines = self:footer_lines() },
-  }
+  local widgets
+  if self:native_playbar() then
+    -- The patched spotatui draws its real playbar below this screen. Keep only
+    -- the lyrics and a compact status/help line here.
+    widgets = {
+      { type = "paragraph", scroll = false, lines = self:body_lines(pb) },
+      { type = "paragraph", height = 2, scroll = false, lines = self:footer_lines() },
+    }
+  else
+    widgets = {
+      { type = "paragraph", height = 2, scroll = false, lines = self:header_lines(pb) },
+      { type = "paragraph", scroll = false, lines = self:body_lines(pb) },
+      { type = "paragraph", height = 1, scroll = false, lines = self:controls_line(pb) },
+      self:progress_widget(pb),
+      { type = "paragraph", height = 2, scroll = false, lines = self:footer_lines() },
+    }
+  end
 
   local ok, err = pcall(spotatui.set_screen, self.config.screen_name, widgets)
   if not ok then

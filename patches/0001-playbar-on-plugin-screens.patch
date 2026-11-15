@@ -1,0 +1,57 @@
+diff --git a/src/core/plugin_api.rs b/src/core/plugin_api.rs
+index deaf555..3333ace 100644
+--- a/src/core/plugin_api.rs
++++ b/src/core/plugin_api.rs
+@@ -492,6 +492,10 @@ pub struct BehaviorSnapshot {
+   pub library_height_percent: u8,
+   /// Lowercased active source name, e.g. `"spotify"`, `"local"`.
+   pub active_source: String,
++  /// True when this build draws the global playbar below plugin screens.
++  ///
++  /// Plugins can use this to avoid rendering a second, duplicate progress bar.
++  pub native_playbar: bool,
+ }
+ 
+ /// User configuration as exposed to plugins: theme colors as config-file
+@@ -559,6 +563,7 @@ pub fn config_snapshot(
+       playbar_height_rows: runtime_state.playbar_height_rows,
+       library_height_percent: runtime_state.library_height_percent,
+       active_source: format!("{:?}", runtime_state.active_source).to_lowercase(),
++      native_playbar: true,
+     },
+   }
+ }
+diff --git a/src/tui/ui/plugin_screen.rs b/src/tui/ui/plugin_screen.rs
+index b0a982d..01a91da 100644
+--- a/src/tui/ui/plugin_screen.rs
++++ b/src/tui/ui/plugin_screen.rs
+@@ -30,7 +30,11 @@ pub fn draw_plugin_screen(f: &mut Frame<'_>, app: &App) {
+     _ => return,
+   };
+ 
+-  let area = f.area();
++  // Plugin screens use the same content/playbar split as the built-in lyrics
++  // and cover-art views, so the real playbar is always visible below them.
++  let (content_area, playbar_area) =
++    crate::tui::layout::fullscreen_view_layout(&app.runtime_state, f.area());
++  let area = content_area;
+   let content = app.plugin_screens.get(&name);
+   let title = content
+     .map(|c| c.title.clone())
+@@ -57,10 +61,16 @@ pub fn draw_plugin_screen(f: &mut Frame<'_>, app: &App) {
+       Style::default().fg(app.user_config.theme.hint.into()),
+     )));
+     f.render_widget(placeholder, inner);
++    if let Some(playbar_area) = playbar_area {
++      super::player::draw_playbar(f, app, playbar_area);
++    }
+     return;
+   };
+ 
+   draw_widgets(f, app, content, inner);
++  if let Some(playbar_area) = playbar_area {
++    super::player::draw_playbar(f, app, playbar_area);
++  }
+ }
+ 
+ /// The constraint a widget contributes to its parent's split.

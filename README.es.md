@@ -133,10 +133,24 @@ spotatui
 - Las letras tienen derechos de autor. El plugin las muestra; no las descarga, empaqueta, cachea en disco ni redistribuye.
 - Este proyecto no está afiliado a spotatui, Spotify, YouTube, LRCLIB, lrcmux, Genius ni NetEase.
 
+## Playbar nativa (recomendado)
+
+La API de plugins no puede dibujar la playbar global de spotatui sobre una pantalla de plugin: la pantalla ocupa toda la terminal y la playbar no se renderiza ahí. Para reutilizar la **playbar real**, el repo incluye un parche pequeño para spotatui:
+
+```bash
+scripts/build-patched-spotatui.sh
+cp ~/.local/bin/spotatui ~/.local/bin/spotatui-0.48.0-original
+cp /tmp/opencode/spotatui-patched/target/release/spotatui ~/.local/bin/spotatui
+```
+
+Pon `behavior.disable_auto_update: true` para que una actualización oficial no reemplace el binario parcheado. El parche dibuja la playbar existente debajo de cada pantalla de plugin (las mismas funciones que usa la vista de letras integrada) y expone `config().behavior.native_playbar = true`; el plugin entonces oculta su barra de respaldo y deja visible la playbar real.
+
+Sin el parche, el plugin sigue funcionando con su línea de progreso compacta.
+
 ## Limitaciones
 
 - La pantalla es propia: la API de plugins no permite inyectar letras en la vista integrada ni apropiarse de `B` sin cambiar la configuración.
-- Las pantallas de plugin no dibujan la playbar de la app; por eso hay una línea de progreso propia con el mismo estilo (`⣿`/`⣉`, tiempo y restante).
+- Sin el parche, las pantallas de plugin no dibujan la playbar de la app; el plugin muestra una línea de progreso compacta. Con el parche, se usa la playbar real debajo de la pantalla.
 - Genius no tiene timestamps; la línea de tiempo es estimada y se etiqueta como tal. Si hay una fuente sincronizada, se prefiere.
 - Si ningún proveedor tiene la canción, la pantalla lo dice. `m` prueba otras variantes; `i` muestra las consultas y los errores.
 - No se ejecuta `yt-dlp` para enriquecer metadatos: bloquearía la UI o añadiría procesos y archivos temporales. El parser cubre las formas habituales de YouTube.

@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.0] - 2026-11-15
+
+### Added
+
+- Native playbar patch for spotatui v0.48.0: the existing playbar is rendered below plugin screens, and `config().behavior.native_playbar` lets the plugin hide its fallback controls.
+- `scripts/build-patched-spotatui.sh` to clone, patch and build spotatui with the recommended features.
+
+### Changed
+
+- With the patched build, the plugin publishes lyrics + a compact status line only; the real playbar provides title, artist, controls and progress.
+
 ## [0.3.0] - 2026-11-15
 
 ### Added

@@ -221,3 +221,11 @@ test("plugin registers the ctrl-b alias", function()
   h:run_command("ytlyrics_open_alt")
   assert_eq(h.route, "plugin:ytlyrics")
 end)
+
+test("plugin hides its fallback bar when native playbar is available", function()
+  local h = setup()
+  h.config_state.behavior.native_playbar = true
+  h:run_command("ytlyrics_open")
+  local widgets = h.last_widgets["ytlyrics"]
+  assert_eq(#widgets, 2)
+end)

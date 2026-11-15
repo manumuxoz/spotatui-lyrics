@@ -215,10 +215,27 @@ spotatui
 - Lyrics are copyrighted by their authors and rights holders. This plugin displays them; it does not download, bundle, cache on disk or redistribute them. Respect the terms of the services you enable.
 - This project is not affiliated with spotatui, Spotify, YouTube, LRCLIB, lrcmux, Genius or NetEase.
 
+## Native playbar (recommended)
+
+The plugin API cannot draw spotatui's global playbar on a plugin screen: plugin screens take the full terminal and the app's playbar is not rendered there. To reuse the **real** playbar instead of the plugin's compact fallback, this repository ships a small spotatui patch:
+
+```bash
+scripts/build-patched-spotatui.sh
+cp ~/.local/bin/spotatui ~/.local/bin/spotatui-0.48.0-original
+cp /tmp/opencode/spotatui-patched/target/release/spotatui ~/.local/bin/spotatui
+```
+
+Set `behavior.disable_auto_update: true` in your config so an official update does not replace the patched binary. The patch:
+
+- renders the existing playbar below every plugin screen, using `fullscreen_view_layout` + `draw_playbar` (the same functions the built-in lyrics view uses);
+- exposes `config().behavior.native_playbar = true` so this plugin hides its fallback controls and leaves the real playbar visible.
+
+The patch is in [`patches/0001-playbar-on-plugin-screens.patch`](patches/0001-playbar-on-plugin-screens.patch) and builds against spotatui `v0.48.0`. Without the patch the plugin still works, with its compact fallback progress line.
+
 ## Limitations
 
 - The plugin opens its **own screen**. spotatui's plugin API cannot inject lyrics into the built-in view or take over `B` without a config change.
-- Plugin screens do not draw the app's playbar, so the screen includes its own playbar-style progress line (`⣿`/`⣉` + time + remaining).
+- Without the patch, plugin screens do not draw the app's playbar, so the plugin shows a compact fallback progress line. With the patch, the real playbar is used below the screen.
 - Genius has no timestamps. The timeline is estimated by line length and labelled `text · estimated`; `[`/`]` lets you correct it. A synced provider is always preferred when available.
 - No provider has the song? The screen says so. `m` tries other metadata variants; `i` shows the exact queries and errors.
 - The plugin does not run `yt-dlp` to enrich metadata. That would block the UI or add a process/file dependency; the title parser covers the common YouTube shapes.

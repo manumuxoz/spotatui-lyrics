@@ -183,6 +183,10 @@ A single 150 ms interval updates the screen; the render key avoids redundant `se
 
 Keys are handled in `on_key`; `Esc`/`q` are global. `Enter` is consumed globally, so seek uses `s`. `B`/`ctrl+b` are consumed globally, hence the documented remap to `B` + `ctrl+b` with the built-in moved to `F2`. `t` calibrates the selected line to the current progress; `,`/`.` are 50 ms nudges, `[`/`]` 250 ms, `{`/`}` 1 s, `0` resets.
 
+## Native playbar
+
+`patches/0001-playbar-on-plugin-screens.patch` changes `draw_plugin_screen` to split the terminal with `fullscreen_view_layout` and call the existing `draw_playbar`, then adds `native_playbar: true` to the plugin config snapshot. `ui.lua` checks `config().behavior.native_playbar`; when true it publishes only lyrics + a compact status/help line and lets the real playbar render below. When false (official binary), it keeps the fallback controls/progress row.
+
 ## Why not `spotatui.get_lyrics`?
 
 `get_lyrics` reads the result of spotatui's own lookup, which uses the raw title/channel and LRCLIB only. For YouTube that is exactly the problem. It also returns only `{status, lines}`, does not say whether timestamps are real, and times out after 15 s. The plugin performs its own lookup so it can clean metadata, try multiple providers and know whether the result is synced.
