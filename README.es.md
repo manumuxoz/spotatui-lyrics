@@ -198,7 +198,7 @@ Instalación de desarrollo:
 ln -s "$PWD" "${XDG_CONFIG_HOME:-$HOME/.config}/spotatui/plugins/spotatui-lyrics"
 ```
 
-Añade el binding, reinicia y usa `--debug` para ver el log. `scripts/smoke.sh` hace comprobaciones HTTP reales contra los tres proveedores (requiere `curl` y `jq`).
+Añade el binding, reinicia y usa `--debug` para ver el log. `scripts/smoke.sh` hace comprobaciones HTTP reales contra los cuatro proveedores (requiere `curl` y `jq`).
 
 ## Licencia
 

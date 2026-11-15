@@ -289,7 +289,7 @@ Install a development copy as a directory plugin:
 ln -s "$PWD" "${XDG_CONFIG_HOME:-$HOME/.config}/spotatui/plugins/spotatui-lyrics"
 ```
 
-Add the binding and restart. `scripts/smoke.sh` runs live HTTP checks against the three providers (requires `curl` and `jq`; not part of CI).
+Add the binding and restart. `scripts/smoke.sh` runs live HTTP checks against the four providers (requires `curl` and `jq`; not part of CI).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the module map and design decisions.
 
