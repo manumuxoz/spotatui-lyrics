@@ -19,7 +19,7 @@ jobs:
       - name: Build zip
         run: |
           zip -r spotatui-lyrics.zip \
-            main.lua ytlyrics scripts docs README.md README.es.md LICENSE CONTRIBUTING.md
+            main.lua ytlyrics scripts docs patches README.md README.es.md LICENSE CONTRIBUTING.md
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

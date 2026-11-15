@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.1] - 2026-11-15
+
+### Packaging
+
+- Release assets now include the patched Linux x86_64 binary and `SHA256SUMS`.
+- The release zip includes the `patches/` directory and `patches/README.md`.
+- Documentation links the prebuilt binary.
+
 ## [0.4.0] - 2026-11-15
 
 ### Added

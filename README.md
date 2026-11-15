@@ -230,7 +230,7 @@ Set `behavior.disable_auto_update: true` in your config so an official update do
 - renders the existing playbar below every plugin screen, using `fullscreen_view_layout` + `draw_playbar` (the same functions the built-in lyrics view uses);
 - exposes `config().behavior.native_playbar = true` so this plugin hides its fallback controls and leaves the real playbar visible.
 
-The patch is in [`patches/0001-playbar-on-plugin-screens.patch`](patches/0001-playbar-on-plugin-screens.patch) and builds against spotatui `v0.48.0`. Without the patch the plugin still works, with its compact fallback progress line.
+The patch is in [`patches/0001-playbar-on-plugin-screens.patch`](patches/0001-playbar-on-plugin-screens.patch) and builds against spotatui `v0.48.0`. Release `v0.4.1` also ships a prebuilt Linux x86_64 binary and `SHA256SUMS`. Without the patch the plugin still works, with its compact fallback progress line.
 
 ## Limitations
 
