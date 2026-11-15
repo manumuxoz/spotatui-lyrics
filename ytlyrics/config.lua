@@ -9,6 +9,7 @@ local M = {}
 
 local KNOWN_PROVIDERS = {
   lrclib = true,
+  lrcmux = true,
   ytmusic = true,
   netease = true,
   genius = true,
@@ -41,7 +42,7 @@ local function parse_list(value, allowed)
   return out
 end
 
-M.providers = parse_list(env("SPOTATUI_LYRICS_PROVIDERS", "lrclib,ytmusic,netease,genius"), KNOWN_PROVIDERS)
+M.providers = parse_list(env("SPOTATUI_LYRICS_PROVIDERS", "lrclib,lrcmux,ytmusic,netease,genius"), KNOWN_PROVIDERS)
 if #M.providers == 0 then
   M.providers = { "lrclib" }
 end

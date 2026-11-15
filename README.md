@@ -40,7 +40,7 @@ The built-in lookup often returns *"No lyrics for this track"* even when the son
 
 1. **Repairs the metadata** — strips `(Official Video)`, `[Lyric Video]`, `(4K Remaster)`, `ft.` credits, label/channel suffixes and more; splits `Artist - Song`, `Song - Artist`, quoted K-pop titles and pipe-separated album tags.
 2. **Builds several queries** — clean title + artist, raw YouTube row, swapped artist/title, channel, featured artist, title variants and title-only.
-3. **Asks several providers** — LRCLIB, YouTube Music, NetEase and Genius, racing in parallel.
+3. **Asks several providers** — LRCLIB, lrcmux, YouTube Music, NetEase and Genius, racing in parallel.
 4. **Scores the answers** — title, artist and duration, with a preference for real timestamps. A wrong song with perfect timestamps is worse than a right song with estimated timing.
 5. **Shows a real lyric screen** — current line highlighted, auto-follow, manual scroll, seek to a line, per-video timing offset, match variants and a debug view.
 
@@ -132,6 +132,7 @@ engine.lua
   │  query 1..N, provider 1..M, generation token, 15 s deadline
   ▼
 LRCLIB ─────────┐
+  lrcmux ─────────┤
   YouTube Music ──┼──► race ──► first answer ──► upgrade if synced
   NetEase ────────┤
   Genius ─────────┘
@@ -150,12 +151,14 @@ Providers run in parallel. The first usable result is rendered immediately as a 
 | Provider | Timestamps | Account / key | Status | Default |
 |---|---|---|---|---|
 | **LRCLIB** | Yes, line-synced LRC | None | Open, documented API | **On** |
+| **lrcmux** | Yes (aggregated word/line timing) | None | Open MIT aggregator; public instance, 60 req/min | **On** |
 | **YouTube Music** | Yes, when the art track has cue ranges | None | Unofficial InnerTube API; exact `videoId` | **On** |
 | **NetEase Cloud Music** | Yes (LRC/YRC) | None | Unofficial web endpoints; may be geo-blocked | **On** |
 | **Genius** | No (plain text) | None | Public web endpoint; no official lyrics API | **On** |
 
 - **LRCLIB** is the primary source. The plugin sends an identifiable `spotatui/<version>` User-Agent through spotatui's HTTP client and keeps request counts low.
-- **YouTube Music** resolves the exact video ID to its lyrics page. The Android Music client returns `timedLyricsModel` with `cueRange` for art tracks; official videos may only have text, in which case the plugin estimates the timeline. It is an unofficial InnerTube endpoint and can change; disable it with `SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius` if you prefer not to use it.
+- **lrcmux** aggregates Deezer/KuGou/Musixmatch/YouTube Music/LRCLIB and returns LRCLIB-compatible LRC, often with word-level timing. The plugin downmixes it to line timing. It is MIT and self-hostable; the public instance is a convenience, not an SLA.
+- **YouTube Music** resolves the exact video ID to its lyrics page. The Android Music client returns `timedLyricsModel` with `cueRange` for art tracks; official videos may only have text, in which case the plugin estimates the timeline. It is an unofficial InnerTube endpoint and can change; disable it with `SPOTATUI_LYRICS_PROVIDERS=lrclib,lrcmux,netease,genius` if you prefer not to use it.
 - **Genius** is used for catalogue breadth. It has no timestamps, so the plugin estimates a readable timeline and labels it as such. The provider first uses spotatui's normal GET; if Genius blocks it, it retries with a browser UA through a POST method override. Disable that fallback with `SPOTATUI_LYRICS_GENIUS_POST=0`.
 - **NetEase** is enabled by default for extra synced coverage, especially for Latin/Asian catalogues. It is an unofficial endpoint; disable it if you prefer LRCLIB + Genius only:
 
@@ -171,7 +174,7 @@ All settings are environment variables, read at plugin load time.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,ytmusic,netease,genius` | Comma-separated provider order. Remove providers you do not want (e.g. `lrclib,genius`). |
+| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,lrcmux,ytmusic,netease,genius` | Comma-separated provider order. Remove providers you do not want (e.g. `lrclib,genius`). |
 | `SPOTATUI_LYRICS_SOURCES` | `youtube` | `youtube` or `all` (also handle Spotify/local/Subsonic/Qobuz when the built-in lookup fails). |
 | `SPOTATUI_LYRICS_PREFETCH` | `0` | `1` fetches lyrics on every track change, even before you open the screen. |
 | `SPOTATUI_LYRICS_WARM` | `1` | After the first open, prefetch the next tracks so the screen opens instantly. `0` disables it. |
@@ -192,14 +195,14 @@ Example:
 ```bash
 export SPOTATUI_LYRICS_LANG=es
 export SPOTATUI_LYRICS_CONTEXT=8
-export SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius
+export SPOTATUI_LYRICS_PROVIDERS=lrclib,lrcmux,ytmusic,netease,genius
 spotatui
 ```
 
 PowerShell:
 
 ```powershell
-$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,ytmusic,netease,genius"
+$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,lrcmux,ytmusic,netease,genius"
 spotatui
 ```
 
@@ -208,9 +211,9 @@ spotatui
 - The plugin sends **track title, artist candidates and duration** to the providers you enable. There is no account, token, telemetry or analytics.
 - Lyrics are held **in memory only**. Offsets and the chosen match variant are stored in spotatui's per-plugin JSON store; lyrics never are.
 - Opening the screen is the consent point. Nothing is fetched before you first open it. After that, the plugin warms the next tracks so the screen opens instantly; set `SPOTATUI_LYRICS_WARM=0` to disable it.
-- LRCLIB is an open community database. YouTube Music (InnerTube), Genius and NetEase are public web endpoints used by many lyrics clients; they can change, rate-limit or block requests at any time. Disable them if you prefer LRCLIB only.
+- LRCLIB is an open community database; lrcmux is an open MIT aggregator (self-hostable). YouTube Music (InnerTube), Genius and NetEase are public web endpoints used by many lyrics clients; they can change, rate-limit or block requests at any time. Disable them if you prefer LRCLIB only.
 - Lyrics are copyrighted by their authors and rights holders. This plugin displays them; it does not download, bundle, cache on disk or redistribute them. Respect the terms of the services you enable.
-- This project is not affiliated with spotatui, Spotify, YouTube, LRCLIB, Genius or NetEase.
+- This project is not affiliated with spotatui, Spotify, YouTube, LRCLIB, lrcmux, Genius or NetEase.
 
 ## Limitations
 
@@ -292,7 +295,7 @@ Install a development copy as a directory plugin:
 ln -s "$PWD" "${XDG_CONFIG_HOME:-$HOME/.config}/spotatui/plugins/spotatui-lyrics"
 ```
 
-Add the binding and restart. `scripts/smoke.sh` runs live HTTP checks against the four providers (requires `curl` and `jq`; not part of CI).
+Add the binding and restart. `scripts/smoke.sh` runs live HTTP checks against the five providers (requires `curl` and `jq`; not part of CI).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the module map and design decisions.
 

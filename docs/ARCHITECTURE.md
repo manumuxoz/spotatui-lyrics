@@ -44,6 +44,7 @@ ytlyrics/
   i18n.lua               English/Spanish UI strings
   providers/
     lrclib.lua           synced LRC from LRCLIB
+    lrcmux.lua           LRCLIB-compatible aggregator (lrcmux)
     youtube_music.lua    exact videoId -> InnerTube timed lyrics
     netease.lua          synced LRC/YRC from NetEase
     genius.lua           plain text from Genius

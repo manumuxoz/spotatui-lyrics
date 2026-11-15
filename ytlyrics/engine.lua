@@ -17,6 +17,7 @@ Engine.__index = Engine
 
 local PROVIDERS = {
   lrclib = require("ytlyrics.providers.lrclib"),
+  lrcmux = require("ytlyrics.providers.lrcmux"),
   ytmusic = require("ytlyrics.providers.youtube_music"),
   netease = require("ytlyrics.providers.netease"),
   genius = require("ytlyrics.providers.genius"),

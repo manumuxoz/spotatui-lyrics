@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## [0.3.0] - 2026-11-15
+
+### Added
+
+- lrcmux provider (LRCLIB-compatible + native endpoints) for a large jump in synced coverage, especially Latin/indie tracks. Enabled by default; MIT and self-hostable.
+- Provider table, default provider list and smoke checks now include lrcmux.
+
 ## [0.2.2] - 2026-11-15
 
 ### Added

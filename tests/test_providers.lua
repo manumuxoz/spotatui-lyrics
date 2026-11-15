@@ -402,3 +402,51 @@ test("youtube music searches for an art track when the exact video has only text
   end
   assert_true(synced >= 1, "the art-track fallback must produce a synced result")
 end)
+
+test("lrcmux compat endpoint returns synced lyrics", function()
+  local h = Harness.new()
+  h.json_handler = function(body)
+    assert_eq(body, "LRCMUX_COMPAT")
+    return {
+      trackName = "Synthetic Song",
+      artistName = "Synthetic Artist",
+      duration = 200,
+      syncedLyrics = "[00:01.00]Synthetic lrcmux one\n[00:02.00]Synthetic lrcmux two",
+    }
+  end
+  h:route_http("api.lrcmux.dev/compat/lrclib/api/get", { status = 200, body = "LRCMUX_COMPAT" })
+  local results
+  require("ytlyrics.providers.lrcmux").search({
+    title = "Synthetic Song",
+    artist = "Synthetic Artist",
+    duration_ms = 200000,
+  }, make_ctx(h), function(r) results = r end)
+  assert_eq(#results, 1)
+  assert_true(results[1].synced)
+  assert_eq(results[1].lines[1].time_ms, 1000)
+end)
+
+test("lrcmux native endpoint falls back to structured lines", function()
+  local h = Harness.new()
+  h.json_handler = function(body)
+    assert_eq(body, "LRCMUX_NATIVE")
+    return {
+      track = { title = "Synthetic Song", artist = "Synthetic Artist", duration = 200 },
+      lines = {
+        { text = "Synthetic native one", start = 1000 },
+        { text = "Synthetic native two", start = 2500 },
+      },
+    }
+  end
+  h:route_http("api.lrcmux.dev/compat/lrclib/api/get", { status = 404, body = "" })
+  h:route_http("api.lrcmux.dev/get?", { status = 200, body = "LRCMUX_NATIVE" })
+  local results
+  require("ytlyrics.providers.lrcmux").search({
+    title = "Synthetic Song",
+    artist = "Synthetic Artist",
+    duration_ms = 200000,
+  }, make_ctx(h), function(r) results = r end)
+  assert_eq(#results, 1)
+  assert_true(results[1].synced)
+  assert_eq(results[1].lines[2].time_ms, 2500)
+end)

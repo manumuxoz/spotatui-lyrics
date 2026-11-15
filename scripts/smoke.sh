@@ -41,6 +41,15 @@ curl -fsS -G "https://lrclib.net/api/get" \
 check "LRCLIB exact lookup has synced lyrics" \
   jq -e '.syncedLyrics != null and (.syncedLyrics | length > 0)' "$tmp/lrclib.json"
 
+echo "== lrcmux =="
+curl -fsS -G "https://api.lrcmux.dev/compat/lrclib/api/get" \
+  --data-urlencode "track_name=Ojitos Lindos" \
+  --data-urlencode "artist_name=Bad Bunny" \
+  --data-urlencode "duration=254" \
+  -o "$tmp/lrcmux.json"
+check "lrcmux compat lookup has synced lyrics" \
+  jq -e '.syncedLyrics != null and (.syncedLyrics | length > 0)' "$tmp/lrcmux.json"
+
 echo "== NetEase =="
 curl -fsS -X POST "https://music.163.com/api/cloudsearch/pc" \
   -H "Content-Type: application/x-www-form-urlencoded" \

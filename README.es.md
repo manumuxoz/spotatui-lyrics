@@ -75,6 +75,7 @@ Para calibrar exacto, pausa o salta al momento en que empieza la línea, selecci
 | Proveedor | Timestamps | Cuenta | Estado | Por defecto |
 |---|---|---|---|---|
 | **LRCLIB** | Sí (LRC) | Ninguna | API abierta y documentada | **Sí** |
+| **lrcmux** | Sí (timing agregado palabra/línea) | Ninguna | Agregador MIT; instancia pública, 60 req/min | **Sí** |
 | **YouTube Music** | Sí, si el art track tiene cue ranges | Ninguna | API InnerTube no oficial; `videoId` exacto | **Sí** |
 | **NetEase Cloud Music** | Sí (LRC/YRC) | Ninguna | Endpoints no oficiales; puede estar bloqueado por región | **Sí** |
 | **Genius** | No (texto plano) | Ninguna | Endpoint web público, sin API oficial de letras | **Sí** |
@@ -91,7 +92,7 @@ Variables de entorno, leídas al cargar el plugin:
 
 | Variable | Por defecto | Significado |
 |---|---|---|
-| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,ytmusic,netease,genius` | Orden de proveedores separado por comas. Quita los que no quieras (p. ej. `lrclib,genius`). |
+| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,lrcmux,ytmusic,netease,genius` | Orden de proveedores separado por comas. Quita los que no quieras (p. ej. `lrclib,genius`). |
 | `SPOTATUI_LYRICS_SOURCES` | `youtube` | `youtube` o `all`. |
 | `SPOTATUI_LYRICS_PREFETCH` | `0` | `1` busca letras en cada cambio de pista, sin esperar a abrir la pantalla. |
 | `SPOTATUI_LYRICS_WARM` | `1` | Tras la primera apertura, precarga las siguientes pistas para que la pantalla abra al instante. `0` lo desactiva. |
@@ -112,14 +113,14 @@ Ejemplo:
 ```bash
 export SPOTATUI_LYRICS_LANG=es
 export SPOTATUI_LYRICS_CONTEXT=8
-export SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius
+export SPOTATUI_LYRICS_PROVIDERS=lrclib,lrcmux,ytmusic,netease,genius
 spotatui
 ```
 
 PowerShell:
 
 ```powershell
-$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,ytmusic,netease,genius"
+$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,lrcmux,ytmusic,netease,genius"
 spotatui
 ```
 
@@ -128,9 +129,9 @@ spotatui
 - Solo se envían **título, artistas candidatos y duración** a los proveedores activos. No hay cuenta, token, telemetría ni analítica.
 - Las letras viven **solo en memoria**. El desfase y la variante elegida se guardan en el almacén JSON por plugin de spotatui; las letras nunca se escriben en disco.
 - Abrir la pantalla es el punto de consentimiento. No se consulta nada antes de la primera apertura. Después, el plugin precarga las siguientes pistas para que abra al instante; usa `SPOTATUI_LYRICS_WARM=0` para desactivarlo.
-- LRCLIB es una base comunitaria abierta. YouTube Music (InnerTube), Genius y NetEase son endpoints web públicos usados por muchos clientes de letras; pueden cambiar, limitar o bloquear peticiones. Desactívalos si prefieres solo LRCLIB.
+- LRCLIB es una base comunitaria abierta; lrcmux es un agregador MIT autoalojable. YouTube Music (InnerTube), Genius y NetEase son endpoints web públicos usados por muchos clientes de letras; pueden cambiar, limitar o bloquear peticiones. Desactívalos si prefieres solo LRCLIB.
 - Las letras tienen derechos de autor. El plugin las muestra; no las descarga, empaqueta, cachea en disco ni redistribuye.
-- Este proyecto no está afiliado a spotatui, Spotify, YouTube, LRCLIB, Genius ni NetEase.
+- Este proyecto no está afiliado a spotatui, Spotify, YouTube, LRCLIB, lrcmux, Genius ni NetEase.
 
 ## Limitaciones
 
@@ -201,7 +202,7 @@ Instalación de desarrollo:
 ln -s "$PWD" "${XDG_CONFIG_HOME:-$HOME/.config}/spotatui/plugins/spotatui-lyrics"
 ```
 
-Añade el binding, reinicia y usa `--debug` para ver el log. `scripts/smoke.sh` hace comprobaciones HTTP reales contra los cuatro proveedores (requiere `curl` y `jq`).
+Añade el binding, reinicia y usa `--debug` para ver el log. `scripts/smoke.sh` hace comprobaciones HTTP reales contra los cinco proveedores (requiere `curl` y `jq`).
 
 ## Licencia
 

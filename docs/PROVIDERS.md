@@ -1,6 +1,6 @@
 # Providers
 
-The plugin asks providers in the order set by `SPOTATUI_LYRICS_PROVIDERS` (default `lrclib,ytmusic,netease,genius`). A provider returns scored candidates; the engine decides which one to show.
+The plugin asks providers in the order set by `SPOTATUI_LYRICS_PROVIDERS` (default `lrclib,lrcmux,ytmusic,netease,genius`). A provider returns scored candidates; the engine decides which one to show.
 
 All requests are HTTPS, asynchronous and bounded by spotatui's HTTP client. Response bodies are capped before JSON decoding. No provider is bundled with lyrics.
 
@@ -68,8 +68,41 @@ Response: `lrc.lyric`, `yrc.lyric`, `klyric.lyric`. The provider strips `[00:00.
 Enable it with:
 
 ```bash
-SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius spotatui
+SPOTATUI_LYRICS_PROVIDERS=lrclib,lrcmux,ytmusic,netease,genius spotatui
 ```
+
+## lrcmux
+
+- Site: <https://lrcmux.dev> · API: <https://api.lrcmux.dev>
+- Status: open-source (MIT) aggregator of Deezer, KuGou, Musixmatch, YouTube Music and LRCLIB. A public instance is available; it can be self-hosted with Docker.
+- Auth: none. The public instance advertises 60 req/min with bursts of 10.
+- Timestamps: line and word level. The plugin uses line timing; word timing is ignored.
+
+The provider uses the LRCLIB-compatible endpoint, so the existing LRC parser handles it:
+
+```
+GET https://api.lrcmux.dev/compat/lrclib/api/get
+  ?track_name=Ojitos%20Lindos
+  &artist_name=Bad%20Bunny
+  &duration=254
+```
+
+Response: `syncedLyrics` (LRC), `plainLyrics`, `trackName`, `artistName`, `duration`.
+
+If that misses, it tries the native endpoint:
+
+```
+GET https://api.lrcmux.dev/get
+  ?artist=Bad%20Bunny
+  &title=Ojitos%20Lindos
+  &duration=254
+  &format=json
+```
+
+Native response: `track.{title,artist,album,duration}` and `lines[].{text,start,end,words}` with millisecond `start` values. Empty `text` lines are dropped; a result without timestamps becomes plain text.
+
+In a 20-track Latin sample, lrcmux had synced lyrics for 13 tracks versus 4 for LRCLIB, which is why it is enabled by default. Keep the public instance or self-host it; there is no SLA.
+
 
 ## YouTube Music (InnerTube)
 
@@ -136,7 +169,7 @@ Notes:
 
 - `fields=contents` is important: it reduces the response from ~650 KB to 10–25 KB.
 - The Android client version matters. `7.27.52` works; `6.42.55` returns plain text and an unknown future version may 404. The provider retries once with `8.05.51`.
-- No `429`/`403` was observed in local testing, but this is a private API with no published limits or stability guarantee. Disable it with `SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius` if needed.
+- No `429`/`403` was observed in local testing, but this is a private API with no published limits or stability guarantee. Disable it with `SPOTATUI_LYRICS_PROVIDERS=lrclib,lrcmux,netease,genius` if needed.
 - YouTube Music depends on the exact entity. The official Get Lucky video has 77 timed lines without `cueRange`; its art track (`4D7u5KF7SP8`) has 109 lines with cue ranges.
 
 ## Genius

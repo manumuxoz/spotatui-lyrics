@@ -65,7 +65,7 @@ local function setup()
   -- Music has its own provider tests below.
   local providers = {}
   for _, provider in ipairs(h.plugin.engine.provider_list) do
-    if provider.id ~= "ytmusic" then
+    if provider.id ~= "ytmusic" and provider.id ~= "lrcmux" then
       providers[#providers + 1] = provider
     end
   end
