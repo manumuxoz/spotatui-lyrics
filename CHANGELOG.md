@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.2] - 2026-11-15
+
+### Fixed
+
+- The prebuilt patched binary now includes `audio-viz`; the first build accidentally shipped only `audio-viz-cpal`, so the visualizer (`v`) had no audio capture.
+- `scripts/build-patched-spotatui.sh` builds both visualizer backends and documents the PipeWire development headers.
+
 ## [0.4.1] - 2026-11-15
 
 ### Packaging

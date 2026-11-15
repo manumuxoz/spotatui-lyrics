@@ -5,7 +5,8 @@
 #   scripts/build-patched-spotatui.sh [destination-dir]
 #
 # The resulting binary is at <destination-dir>/target/release/spotatui.
-# Requires git, cargo and rustc >= 1.95.
+# Requires git, cargo, rustc >= 1.95 and the PipeWire development headers
+# (`sudo apt install libpipewire-0.3-dev` on Debian/Ubuntu) for `audio-viz`.
 
 set -euo pipefail
 
@@ -28,7 +29,7 @@ git clone --depth 1 --branch "$version" https://github.com/LargeModGames/spotatu
 git -C "$dest" apply "$root/patches/0001-playbar-on-plugin-screens.patch"
 
 cd "$dest"
-cargo build --release --features "scripting,youtube,local-files,subsonic,internet-radio,qobuz,soloist,cover-art,mcp-server,ai-dj,mpris,discord-rpc,self-update,audio-viz-cpal,queue,queue-download"
+cargo build --release --features "scripting,youtube,local-files,subsonic,internet-radio,qobuz,soloist,cover-art,mcp-server,ai-dj,mpris,discord-rpc,self-update,audio-viz,audio-viz-cpal,queue,queue-download"
 
 cat <<EOF
 

@@ -22,8 +22,9 @@ scripts/build-patched-spotatui.sh
 ```
 
 The script clones `v0.48.0`, applies this patch and builds a release binary with
-the YouTube, scripting, streaming, local-files, Subsonic, radio, Qobuz, cover-art
-and MCP features.
+the YouTube, scripting, streaming, local-files, Subsonic, radio, Qobuz, cover-art,
+audio-visualizer and MCP features. It needs the PipeWire development headers for
+`audio-viz` (`sudo apt install libpipewire-0.3-dev` on Debian/Ubuntu).
 
 ## Prebuilt asset
 
