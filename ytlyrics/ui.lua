@@ -21,6 +21,9 @@ function UI.new(opts)
     timer = nil,
     last_render_key = nil,
     warned_render_error = false,
+    warmed = false,
+    flash_message = nil,
+    flash_until = 0,
   }, UI)
 end
 
@@ -40,10 +43,44 @@ function UI:theme()
   return type(config.theme) == "table" and config.theme or {}
 end
 
+function UI:behavior()
+  local ok, config = pcall(spotatui.config)
+  if not ok or type(config) ~= "table" then
+    return {}
+  end
+  return type(config.behavior) == "table" and config.behavior or {}
+end
+
 function UI:current_track()
   local pb = spotatui.playback()
   if pb and type(pb.track) == "table" then
     return pb
+  end
+  return nil
+end
+
+function UI:flash(text, ttl)
+  self.flash_message = text
+  self.flash_until = os.time() + (ttl or 3)
+  self.last_render_key = nil
+  self:render(true)
+end
+
+function UI:message(text, ttl)
+  if self:is_open() then
+    self:flash(text, ttl)
+  else
+    spotatui.notify(text, ttl or 3)
+  end
+end
+
+function UI:active_message()
+  if self.flash_message and os.time() < self.flash_until then
+    return self.flash_message
+  end
+  if self.flash_message then
+    self.flash_message = nil
+    self.flash_until = 0
   end
   return nil
 end
@@ -75,6 +112,7 @@ function UI:register()
     end,
     on_open = function()
       self.opened = true
+      self.warmed = true
       self.follow = true
       self.browse = nil
       self.last_render_key = nil
@@ -99,7 +137,7 @@ function UI:register()
   spotatui.register_command(prefix .. "next_match", function()
     local pb = self:current_track()
     if not pb then
-      spotatui.notify(i18n.t("no_track"), 3)
+      self:message(i18n.t("no_track"), 3)
       return
     end
     if not self.opened then
@@ -109,7 +147,7 @@ function UI:register()
   end)
   spotatui.register_command(prefix .. "offset_reset", function()
     self.engine:reset_offset()
-    spotatui.notify(i18n.t("offset_reset"), 2)
+    self:message(i18n.t("offset_reset"), 2)
     self:render(true)
   end)
   spotatui.register_command(prefix .. "debug", function()
@@ -153,7 +191,7 @@ function UI:open(opts)
     if pb then
       self.engine:refresh(pb)
     else
-      spotatui.notify(i18n.t("no_track"), 3)
+      self:message(i18n.t("no_track"), 3)
     end
   else
     self:ensure_lookup(self:current_track())
@@ -173,6 +211,11 @@ function UI:tick()
   end
   local pb = self:current_track()
   self:ensure_lookup(pb)
+  if self.flash_message and os.time() >= self.flash_until then
+    self.flash_message = nil
+    self.flash_until = 0
+    self.last_render_key = nil
+  end
   self:render(false)
 end
 
@@ -191,7 +234,7 @@ end
 
 function UI:on_track(pb)
   if pb and pb.track then
-    if self.opened or self.config.prefetch then
+    if self.opened or self.config.prefetch or (self.config.warm and self.warmed) then
       self.engine:lookup(pb)
     end
   else
@@ -218,7 +261,14 @@ function UI:header_lines(pb)
     artist = table.concat(track.artists, ", ")
   end
 
-  lines[#lines + 1] = { text = "♪ " .. util.shorten(title, 120), bold = true }
+  local behavior = self:behavior()
+  local icon = "♪ "
+  if pb.is_playing == false then
+    icon = (behavior.paused_icon or "⏸") .. " "
+  elseif behavior.playing_icon then
+    icon = behavior.playing_icon .. " "
+  end
+  lines[#lines + 1] = { text = icon .. util.shorten(title, 120), bold = true }
   local parts = {}
   if artist ~= "" then
     parts[#parts + 1] = util.shorten(artist, 60)
@@ -308,6 +358,10 @@ function UI:body_lines(pb)
   return out
 end
 
+--- A playbar-shaped progress line: the same ⣿/⣉ glyphs and colors as the
+--- main playbar, implemented as a two-part row so the filled and empty halves
+--- can have different theme colors. It adapts to the available width because
+--- both halves are percentage-sized and their text is clipped by the renderer.
 function UI:progress_widget(pb)
   local duration = 0
   local progress = 0
@@ -316,16 +370,38 @@ function UI:progress_widget(pb)
     progress = tonumber(pb.progress_ms) or 0
   end
   local ratio = duration > 0 and util.clamp(progress / duration, 0, 1) or 0
-  local label = i18n.fmt(
-    "progress",
-    util.fmt_ms(progress),
-    duration > 0 and util.fmt_ms(duration) or "--:--"
-  )
+  local end_label = duration > 0 and util.fmt_ms(duration) or "--:--"
+  local remaining = duration > 0 and (" (-" .. util.fmt_ms(math.max(0, duration - progress)) .. ")") or ""
+  local label = util.fmt_ms(progress) .. "/" .. end_label .. remaining
+
+  local theme = self:theme()
+  local filled_color = theme.playbar_progress or theme.active or "Green"
+  local empty_color = theme.playbar_background or theme.inactive or "Reset"
+  local text_color = theme.playbar_progress_text or theme.playbar_text or theme.text or "Reset"
+
+  -- The main playbar shows "m:ss/m:ss (-m:ss)" to the left of a ⣿/⣉ line.
+  local filled = util.clamp(math.floor(ratio * 75 + 0.5), 1, 74)
+  local empty = 75 - filled
   return {
-    type = "gauge",
-    ratio = ratio,
-    label = label,
-    height = 3,
+    type = "row",
+    height = 1,
+    children = {
+      {
+        type = "paragraph",
+        width_percent = 25,
+        lines = { { text = label .. " ", fg = text_color } },
+      },
+      {
+        type = "paragraph",
+        width_percent = filled,
+        lines = { { text = string.rep("⣿", 200), fg = filled_color } },
+      },
+      {
+        type = "paragraph",
+        width_percent = empty,
+        lines = { { text = string.rep("⣉", 200), fg = empty_color } },
+      },
+    },
   }
 end
 
@@ -340,8 +416,14 @@ function UI:footer_lines()
   end
   meta[#meta + 1] = i18n.t("match") .. " " .. tostring(state.variant or 1) .. "/" .. tostring(state.variant_count or 1)
   meta[#meta + 1] = self.follow and i18n.t("follow") or i18n.t("follow_paused")
+  if state.searching then
+    meta[#meta + 1] = i18n.t("searching_synced")
+  end
+  local message = self:active_message()
+  local first = message and { text = message, fg = "Yellow", bold = true }
+    or { text = table.concat(parts, " "), fg = "DarkGray", italic = true }
   return {
-    { text = table.concat(parts, " "), fg = "DarkGray", italic = true },
+    first,
     { text = util.shorten(table.concat(meta, " · "), 150), fg = "DarkGray" },
   }
 end
@@ -366,6 +448,9 @@ function UI:render(force)
     tostring(state.synced),
     tostring(state.estimated),
     tostring(state.low_confidence),
+    tostring(state.provisional),
+    tostring(state.searching),
+    tostring(self:active_message() or ""),
     tostring(#(state.lines or {})),
     tostring(progress_second),
     tostring(state.lines and state.lines[1] and state.lines[1].text or ""),
@@ -387,7 +472,7 @@ function UI:render(force)
     spotatui.log("[ytlyrics] set_screen failed: " .. tostring(err))
     if not self.warned_render_error then
       self.warned_render_error = true
-      spotatui.notify("Lyrics screen error: " .. tostring(err), 6)
+      self:flash("Lyrics screen error: " .. tostring(err), 6)
     end
   end
 end
@@ -426,17 +511,25 @@ function UI:on_key(key)
     self:render(true)
   elseif key == "s" then
     if #lines == 0 then
-      spotatui.notify(i18n.t("empty"), 2)
+      self:message(i18n.t("empty"), 2)
       return
     end
     local selected = self.follow and (self.engine:current_index(pb) or 1) or (self.browse or 1)
-    local seek_ms = self.engine:seek_time(selected)
+    local seek_ms = self.engine:seek_time(selected, pb)
     if seek_ms then
       spotatui.seek(math.floor(seek_ms))
       self.follow = true
       self.browse = nil
       self:render(true)
     end
+  elseif key == "t" then
+    self:calibrate()
+  elseif key == "," then
+    self.engine:set_offset(-self.config.offset_fine_ms)
+    self:render(true)
+  elseif key == "." then
+    self.engine:set_offset(self.config.offset_fine_ms)
+    self:render(true)
   elseif key == "[" then
     self.engine:set_offset(-self.config.offset_step_ms)
     self:render(true)
@@ -464,11 +557,33 @@ function UI:on_key(key)
       self.browse = nil
       self.engine:refresh(pb)
     else
-      spotatui.notify(i18n.t("no_track"), 2)
+      self:message(i18n.t("no_track"), 2)
     end
   elseif key == "i" then
     self:show_debug()
   end
+end
+
+function UI:calibrate()
+  local pb = self:current_track()
+  local lines = self.engine.state.lines or {}
+  if not pb or #lines == 0 then
+    self:message(i18n.t("empty"), 2)
+    return
+  end
+  local selected = self.follow and (self.engine:current_index(pb) or 1) or (self.browse or 1)
+  if lines[selected] and lines[selected].is_header then
+    selected = lrc.next_index(lines, selected) or selected
+  end
+  local line = lines[selected]
+  if not line then
+    return
+  end
+  local display_progress = self.engine:progress(pb)
+  -- Align the line with the highlight's display space (progress + bias while playing).
+  local offset = self.engine:set_offset_absolute(display_progress - line.time_ms)
+  self:message(i18n.fmt("offset_calibrated", offset or 0), 4)
+  self:render(true)
 end
 
 function UI:show_debug()

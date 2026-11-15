@@ -25,7 +25,7 @@ The design is shaped by spotatui 0.48 / scripting API v6:
 - Timers fire from the UI tick (250 ms by default). There is no per-frame draw callback and no terminal-size API.
 - A plugin screen is retained-mode: `set_screen` replaces widgets, the app renders them. The screen has a fixed title/border and no playbar.
 - `B` is consumed by the built-in `lyrics_view` before `on_key`; a `plugin_commands` binding on `B` is discarded unless the user remaps `lyrics_view`.
-- `spotatui.playback()` inside a timer returns the previous tick's snapshot, hence the default `SPOTATUI_LYRICS_BIAS_MS=120`.
+- `spotatui.playback()` inside a timer returns the previous tick's snapshot. The engine therefore adds one UI tick to the progress used for the highlight by default (≈250 ms); `SPOTATUI_LYRICS_BIAS_MS` overrides it. `t` calibrates the offset exactly, and `,`/`.` provide 50 ms nudges.
 
 ## Module map
 
@@ -44,7 +44,8 @@ ytlyrics/
   i18n.lua               English/Spanish UI strings
   providers/
     lrclib.lua           synced LRC from LRCLIB
-    netease.lua          optional synced LRC/YRC from NetEase
+    youtube_music.lua    exact videoId -> InnerTube timed lyrics
+    netease.lua          synced LRC/YRC from NetEase
     genius.lua           plain text from Genius
 tests/
   harness.lua            mock spotatui API v6
@@ -73,9 +74,10 @@ generation++, status=loading, deadline timer
         │
         ▼
 for query in ordered queries (max 4 by default):
-  for provider in configured order:
-    provider.search(query, ctx, done)
-    score each result (title/artist/duration)
+  start every configured provider in parallel for the query
+  score each result as it arrives
+  show the first usable result as provisional (status ready + searching)
+  upgrade it if a better synced result arrives
   stop on high-confidence synced, or a very strong plain result
         │
         ▼
@@ -85,6 +87,10 @@ apply offset, cache in memory, render
 ```
 
 A generation token is incremented for every new lookup. Every provider callback checks it, so a late answer for a skipped track is discarded. The lookup also has an overall timeout (`SPOTATUI_LYRICS_TIMEOUT`, default 15 s) that applies the best result collected so far.
+
+The first result above the display threshold is applied immediately with `provisional=true` and `searching=true`. The engine keeps the race running; a later synced result replaces it with `provisional=false`. Only final results are cached. This is what makes opening the screen feel instant without giving up timestamp coverage.
+
+After the first open, `SPOTATUI_LYRICS_WARM` (default on) prefetches the next YouTube tracks while the app runs, so reopening is a cache hit. Set it to `0` to return to strictly on-demand lookups.
 
 ## Metadata repair
 
@@ -160,7 +166,7 @@ Providers never render and never decide the final answer; the engine scores and 
 
 - **In-memory LRU** keyed by `uri#variant`, 24 entries. A resolved answer is reused until the track changes or `r` forces a reload.
 - **Persistent** only:
-  - `offset:<video_id>` — integer milliseconds,
+  - `offset:<video_id>` — integer milliseconds (and the calibration result),
   - `variant:<video_id>` — chosen metadata variant.
 - Lyrics are never persisted. This keeps the JSON store small and avoids writing copyrighted text to disk.
 
@@ -170,11 +176,11 @@ Providers never render and never decide the final answer; the engine scores and 
 
 - fixed header (track + provider/status/offset/match),
 - lyric window (`2 * context + 1` lines, current line highlighted with `▸`, past lines dim),
-- gauge (the plugin screen has no playbar) and a two-line footer.
+- a playbar-shaped progress row (`⣿`/`⣉` halves, time, remaining) and a two-line footer.
 
 A single 150 ms interval updates the screen; the render key avoids redundant `set_screen` calls when neither the line, the status, the offset nor the progress second changed. `set_screen` is wrapped in `pcall` so a malformed widget cannot disable the timer.
 
-Keys are handled in `on_key`; `Esc`/`q` are global. `Enter` is consumed globally, so seek uses `s`. `B` is consumed globally, hence the documented remap.
+Keys are handled in `on_key`; `Esc`/`q` are global. `Enter` is consumed globally, so seek uses `s`. `B` is consumed globally, hence the documented remap. `t` calibrates the selected line to the current progress; `,`/`.` are 50 ms nudges, `[`/`]` 250 ms, `{`/`}` 1 s, `0` resets.
 
 ## Why not `spotatui.get_lyrics`?
 

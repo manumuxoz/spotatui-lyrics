@@ -9,6 +9,7 @@ local M = {}
 
 local KNOWN_PROVIDERS = {
   lrclib = true,
+  ytmusic = true,
   netease = true,
   genius = true,
 }
@@ -40,7 +41,7 @@ local function parse_list(value, allowed)
   return out
 end
 
-M.providers = parse_list(env("SPOTATUI_LYRICS_PROVIDERS", "lrclib,genius"), KNOWN_PROVIDERS)
+M.providers = parse_list(env("SPOTATUI_LYRICS_PROVIDERS", "lrclib,ytmusic,netease,genius"), KNOWN_PROVIDERS)
 if #M.providers == 0 then
   M.providers = { "lrclib" }
 end
@@ -51,11 +52,13 @@ if #M.sources == 0 then
 end
 
 M.prefetch = env("SPOTATUI_LYRICS_PREFETCH", "0") == "1"
+M.warm = env("SPOTATUI_LYRICS_WARM", "1") ~= "0"
 M.estimate = env("SPOTATUI_LYRICS_ESTIMATE", "1") ~= "0"
 M.debug = env("SPOTATUI_LYRICS_DEBUG", "0") == "1"
 M.context_lines = env_number("SPOTATUI_LYRICS_CONTEXT", 6, 2, 20)
 M.offset_step_ms = env_number("SPOTATUI_LYRICS_OFFSET_STEP", 250, 50, 2000)
-M.bias_ms = env_number("SPOTATUI_LYRICS_BIAS_MS", 120, -1000, 1000)
+M.offset_fine_ms = env_number("SPOTATUI_LYRICS_OFFSET_FINE", 50, 5, 500)
+M.bias_ms = env_number("SPOTATUI_LYRICS_BIAS_MS", -1, -1000, 1000) -- -1 = auto
 M.timeout_ms = env_number("SPOTATUI_LYRICS_TIMEOUT", 15000, 3000, 30000)
 M.max_body_bytes = env_number("SPOTATUI_LYRICS_MAX_BODY", 2097152, 65536, 8388608)
 M.genius_browser_fallback = env("SPOTATUI_LYRICS_GENIUS_POST", "1") ~= "0"

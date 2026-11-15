@@ -74,6 +74,24 @@ curl -fsSL "https://genius.com/Guxo-si-el-mundo-fuera-perfecto-lyrics" \
 check "Genius page has a lyrics container" \
   grep -q 'data-lyrics-container="true"' "$tmp/genius-page.html"
 
+echo "== YouTube Music =="
+yt_ctx='{"client":{"clientName":"WEB_REMIX","clientVersion":"1.20261110.04.00","hl":"en","gl":"US"}}'
+curl -fsS -X POST "https://music.youtube.com/youtubei/v1/next?prettyPrint=false&fields=contents" \
+  -H "Content-Type: application/json" \
+  --data "{\"context\":${yt_ctx},\"videoId\":\"4D7u5KF7SP8\"}" \
+  -o "$tmp/ytmusic-next.json"
+check "YouTube Music next returns a lyrics tab" \
+  jq -e '[.. | objects | select(has("browseEndpoint")) | .browseEndpoint.browseId | select(startswith("MPLYt_"))] | length > 0' "$tmp/ytmusic-next.json"
+
+yt_browse_id="$(jq -r '[.. | objects | select(has("browseEndpoint")) | .browseEndpoint.browseId | select(startswith("MPLYt_"))] | first' "$tmp/ytmusic-next.json")"
+yt_app_ctx='{"client":{"clientName":"ANDROID_MUSIC","clientVersion":"7.27.52","hl":"en","gl":"US"}}'
+curl -fsS -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false&fields=contents" \
+  -H "Content-Type: application/json" \
+  --data "{\"context\":${yt_app_ctx},\"browseId\":\"${yt_browse_id}\"}" \
+  -o "$tmp/ytmusic-browse.json"
+check "YouTube Music Android browse has cue ranges" \
+  jq -e '.contents.elementRenderer.newElement.type.componentType.model.timedLyricsModel.lyricsData.timedLyricsData | length > 10' "$tmp/ytmusic-browse.json"
+
 echo
 echo "${pass} passed, ${fail} failed"
 if [ "$fail" -ne 0 ]; then

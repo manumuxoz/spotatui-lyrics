@@ -21,8 +21,8 @@
 │  More placeholder text for the screenshot                    │
 │  ...                                                         │
 │                                                              │
-│ ████████████░░░░░░░░░░░░░  0:35 / 3:33                       │
-│ j/k · f · s · [ ] · m · r · 0 · i · Esc                      │
+│ ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉⣉ 0:35 / 3:33 -2:58              │
+│ j/k · f · s · t · [ ] · , . · m · r · i · Esc                │
 │ Genius · match 1/4 · following                               │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -39,7 +39,7 @@ The built-in lookup often returns *"No lyrics for this track"* even when the son
 
 1. **Repairs the metadata** — strips `(Official Video)`, `[Lyric Video]`, `(4K Remaster)`, `ft.` credits, label/channel suffixes and more; splits `Artist - Song`, `Song - Artist`, quoted K-pop titles and pipe-separated album tags.
 2. **Builds several queries** — clean title + artist, raw YouTube row, swapped artist/title, channel, featured artist, title variants and title-only.
-3. **Asks several providers** — LRCLIB first, then (optionally) NetEase and Genius.
+3. **Asks several providers** — LRCLIB, YouTube Music, NetEase and Genius, racing in parallel.
 4. **Scores the answers** — title, artist and duration, with a preference for real timestamps. A wrong song with perfect timestamps is worse than a right song with estimated timing.
 5. **Shows a real lyric screen** — current line highlighted, auto-follow, manual scroll, seek to a line, per-video timing offset, match variants and a debug view.
 
@@ -48,11 +48,12 @@ There was no existing spotatui lyrics plugin that solved this when the project w
 ## Features
 
 - **Line-synced lyrics when a provider has timestamps.**
+- **Fast first paint**: providers race in parallel and the first usable answer is shown immediately; a synced answer upgrades it if one arrives later.
 - **Readable plain lyrics when no provider has timestamps**, with a clearly labelled estimated timeline.
 - **YouTube metadata repair** with multi-language noise tags (English, Spanish, Portuguese, Korean/Japanese title shapes).
 - **Provider chain** with per-provider parsing and graceful failure.
 - **Match variants** (`m`): if the parser split the title wrong, try the next query without editing anything.
-- **Manual timing offset** (`[` / `]`, `{` / `}`, `0`): nudges lyrics per video and remembers it across restarts.
+- **Timing calibration** (`t`): aligns the selected line with the current playback position in one keypress. Fine nudges (`,` / `.`), 250 ms steps, 1 s steps and reset are available; the offset is remembered per video.
 - **Seek to a line** (`s`): jumps playback to the selected line.
 - **Debug popup** (`i`): shows the raw metadata, every query, every HTTP request, every score and the selected provider. Useful for bug reports.
 - **Lazy lookup**: nothing is fetched until you open the screen, unless `SPOTATUI_LYRICS_PREFETCH=1`.
@@ -102,6 +103,8 @@ Restart after changing the config. If you only add `ytlyrics_open: "B"` without 
 | `k` / `Up` | Scroll up and pause auto-follow |
 | `f` | Resume auto-follow |
 | `s` | Seek playback to the selected line |
+| `t` | Calibrate: make the selected line start at the current playback position |
+| `,` / `.` | Nudge lyric timing 50 ms earlier / later |
 | `[` / `]` | Move lyric timing 250 ms earlier / later |
 | `{` / `}` | Move lyric timing 1 s earlier / later |
 | `0` | Reset the timing offset for this video |
@@ -124,32 +127,36 @@ metadata.lua
 engine.lua
   │  query 1..N, provider 1..M, generation token, 15 s deadline
   ▼
-LRCLIB ──► NetEase (opt-in) ──► Genius
-  │            │                 │
-  │ LRC        │ LRC/YRC         │ plain text
-  ▼            ▼                 ▼
+LRCLIB ─────────┐
+  YouTube Music ──┼──► race ──► first answer ──► upgrade if synced
+  NetEase ────────┤
+  Genius ─────────┘
+        │
+        ▼
 score.lua: title 55% + artist 25% + duration 20%
   │  prefer synced; reject wrong songs; keep plain fallback
   ▼
 ui.lua: custom screen, current line, gauge, offset, variants
 ```
 
-The provider chain stops at the first **high-confidence synced** result. A strong **plain** result is accepted when the remaining providers are unlikely to add timestamps, so the screen is not stuck loading for ten seconds. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full data flow and API constraints.
+Providers run in parallel. The first usable result is rendered immediately as a provisional answer; a high-confidence synced result stops the race, and a late synced answer upgrades the provisional one. A strong **plain** result is accepted when the remaining providers are unlikely to add timestamps, so the screen is not stuck loading for ten seconds. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full data flow and API constraints.
 
 ## Providers
 
 | Provider | Timestamps | Account / key | Status | Default |
 |---|---|---|---|---|
 | **LRCLIB** | Yes, line-synced LRC | None | Open, documented API | **On** |
+| **YouTube Music** | Yes, when the art track has cue ranges | None | Unofficial InnerTube API; exact `videoId` | **On** |
+| **NetEase Cloud Music** | Yes (LRC/YRC) | None | Unofficial web endpoints; may be geo-blocked | **On** |
 | **Genius** | No (plain text) | None | Public web endpoint; no official lyrics API | **On** |
-| **NetEase Cloud Music** | Yes (LRC/YRC) | None | Unofficial web endpoints; may be geo-blocked | Off |
 
 - **LRCLIB** is the primary source. The plugin sends an identifiable `spotatui/<version>` User-Agent through spotatui's HTTP client and keeps request counts low.
+- **YouTube Music** resolves the exact video ID to its lyrics page. The Android Music client returns `timedLyricsModel` with `cueRange` for art tracks; official videos may only have text, in which case the plugin estimates the timeline. It is an unofficial InnerTube endpoint and can change; disable it with `SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius` if you prefer not to use it.
 - **Genius** is used for catalogue breadth. It has no timestamps, so the plugin estimates a readable timeline and labels it as such. The provider first uses spotatui's normal GET; if Genius blocks it, it retries with a browser UA through a POST method override. Disable that fallback with `SPOTATUI_LYRICS_GENIUS_POST=0`.
-- **NetEase** is disabled by default because it is an unofficial endpoint. Enable it when you want extra synced coverage, especially for Latin/Asian catalogues:
+- **NetEase** is enabled by default for extra synced coverage, especially for Latin/Asian catalogues. It is an unofficial endpoint; disable it if you prefer LRCLIB + Genius only:
 
 ```bash
-SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius spotatui
+SPOTATUI_LYRICS_PROVIDERS=lrclib,genius spotatui
 ```
 
 The providers are intentionally replaceable: adding one is a module with a `search(query, ctx, done)` function. See [`docs/PROVIDERS.md`](docs/PROVIDERS.md).
@@ -160,12 +167,14 @@ All settings are environment variables, read at plugin load time.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,genius` | Comma-separated provider order. Enable `netease` for synced fallback. |
+| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,ytmusic,netease,genius` | Comma-separated provider order. Remove providers you do not want (e.g. `lrclib,genius`). |
 | `SPOTATUI_LYRICS_SOURCES` | `youtube` | `youtube` or `all` (also handle Spotify/local/Subsonic/Qobuz when the built-in lookup fails). |
 | `SPOTATUI_LYRICS_PREFETCH` | `0` | `1` fetches lyrics on every track change, even before you open the screen. |
+| `SPOTATUI_LYRICS_WARM` | `1` | After the first open, prefetch the next tracks so the screen opens instantly. `0` disables it. |
 | `SPOTATUI_LYRICS_CONTEXT` | `6` | Lyric lines shown above and below the current one (2–20). |
 | `SPOTATUI_LYRICS_OFFSET_STEP` | `250` | Offset step in ms for `[` / `]`. |
-| `SPOTATUI_LYRICS_BIAS_MS` | `120` | Compensates for spotatui's one-tick playback snapshot delay. |
+| `SPOTATUI_LYRICS_OFFSET_FINE` | `50` | Fine offset step in ms for `,` / `.`. |
+| `SPOTATUI_LYRICS_BIAS_MS` | auto | Compensates for spotatui's one-tick playback snapshot delay. Auto is one UI tick (≈250 ms); set a number to override. |
 | `SPOTATUI_LYRICS_TIMEOUT` | `15000` | Overall lookup deadline in ms. |
 | `SPOTATUI_LYRICS_MAX_QUERIES` | `4` | Metadata variants tried per lookup (1–8). |
 | `SPOTATUI_LYRICS_ESTIMATE` | `1` | Set `0` to show plain lyrics without an estimated timeline. |
@@ -179,14 +188,14 @@ Example:
 ```bash
 export SPOTATUI_LYRICS_LANG=es
 export SPOTATUI_LYRICS_CONTEXT=8
-export SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius
+export SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius
 spotatui
 ```
 
 PowerShell:
 
 ```powershell
-$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,netease,genius"
+$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,ytmusic,netease,genius"
 spotatui
 ```
 
@@ -194,19 +203,19 @@ spotatui
 
 - The plugin sends **track title, artist candidates and duration** to the providers you enable. There is no account, token, telemetry or analytics.
 - Lyrics are held **in memory only**. Offsets and the chosen match variant are stored in spotatui's per-plugin JSON store; lyrics never are.
-- Opening the screen is the consent point. With `SPOTATUI_LYRICS_PREFETCH=0` (default), nothing leaves your machine until you press the lyrics key.
-- LRCLIB is an open community database. Genius and NetEase are public web endpoints used by many lyrics clients; they can change, rate-limit or block requests at any time. Disable them if you prefer LRCLIB only.
+- Opening the screen is the consent point. Nothing is fetched before you first open it. After that, the plugin warms the next tracks so the screen opens instantly; set `SPOTATUI_LYRICS_WARM=0` to disable it.
+- LRCLIB is an open community database. YouTube Music (InnerTube), Genius and NetEase are public web endpoints used by many lyrics clients; they can change, rate-limit or block requests at any time. Disable them if you prefer LRCLIB only.
 - Lyrics are copyrighted by their authors and rights holders. This plugin displays them; it does not download, bundle, cache on disk or redistribute them. Respect the terms of the services you enable.
 - This project is not affiliated with spotatui, Spotify, YouTube, LRCLIB, Genius or NetEase.
 
 ## Limitations
 
 - The plugin opens its **own screen**. spotatui's plugin API cannot inject lyrics into the built-in view or take over `B` without a config change.
-- Plugin screens do not draw the playbar, so the screen includes its own progress gauge.
+- Plugin screens do not draw the app's playbar, so the screen includes its own playbar-style progress line (`⣿`/`⣉` + time + remaining).
 - Genius has no timestamps. The timeline is estimated by line length and labelled `text · estimated`; `[`/`]` lets you correct it. A synced provider is always preferred when available.
 - No provider has the song? The screen says so. `m` tries other metadata variants; `i` shows the exact queries and errors.
 - The plugin does not run `yt-dlp` to enrich metadata. That would block the UI or add a process/file dependency; the title parser covers the common YouTube shapes.
-- YouTube Music's private timed-lyrics API is not used. It has better `videoId`-based matching but is unofficial and can break; it is a possible future opt-in provider.
+- YouTube Music's timed lyrics depend on the exact entity: art tracks usually carry cue ranges, while some official videos only expose text. The provider falls back to an estimated timeline when cues are missing. The InnerTube endpoint is unofficial and can change.
 - Very long videos (mixes, podcasts, streams) are skipped as non-music by default. Press `r` to search anyway.
 
 ## Troubleshooting
@@ -216,8 +225,8 @@ spotatui
 1. Press `i` and read the debug popup: it shows the raw metadata, each query, each provider request and the scores.
 2. Press `m` to try another metadata variant.
 3. Press `r` to retry from match 1.
-4. Enable NetEase for more synced coverage:
-   `SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius spotatui`
+4. If you disabled NetEase, enable it for more synced coverage:
+   `SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius spotatui`
 5. Check that the provider is reachable from your network.
 
 **The plugin does not load**

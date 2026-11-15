@@ -1,6 +1,6 @@
 # Providers
 
-The plugin asks providers in the order set by `SPOTATUI_LYRICS_PROVIDERS` (default `lrclib,genius`). A provider returns scored candidates; the engine decides which one to show.
+The plugin asks providers in the order set by `SPOTATUI_LYRICS_PROVIDERS` (default `lrclib,ytmusic,netease,genius`). A provider returns scored candidates; the engine decides which one to show.
 
 All requests are HTTPS, asynchronous and bounded by spotatui's HTTP client. Response bodies are capped before JSON decoding. No provider is bundled with lyrics.
 
@@ -39,9 +39,9 @@ Relevant response fields:
 
 The provider prefers a synced record; a plain record is kept as a fallback while the engine tries the other providers. LRCLIB contains many rows whose `trackName` is the exact YouTube video title and whose `artistName` is the channel; the raw-metadata query is there to catch those.
 
-## NetEase Cloud Music (optional)
+## NetEase Cloud Music
 
-- Status: unofficial web API; disabled by default.
+- Status: unofficial web API; enabled by default.
 - Auth: none for the endpoints below, but some regions/IPs are blocked or get different responses.
 - Timestamps: LRC (`lrc.lyric`), sometimes word-level YRC (`yrc.lyric`) and karaoke LRC (`klyric.lyric`).
 
@@ -68,8 +68,76 @@ Response: `lrc.lyric`, `yrc.lyric`, `klyric.lyric`. The provider strips `[00:00.
 Enable it with:
 
 ```bash
-SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius spotatui
+SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius spotatui
 ```
+
+## YouTube Music (InnerTube)
+
+- Status: unofficial private API; enabled by default.
+- Auth: none. No cookie, API key or `visitorData` is required for the endpoints below (verified 2026-11-15).
+- Timestamps: `timedLyricsModel.lyricsData.timedLyricsData[].cueRange` when the entity has them. Some official videos expose the same model without `cueRange`; those become plain text and the engine estimates a timeline.
+- The ANDROID_MUSIC client is what makes the cue ranges appear. The WEB_REMIX client returns only a plain-text description shelf for the same page.
+
+Two POST requests when the player already knows the YouTube video ID:
+
+```
+POST https://music.youtube.com/youtubei/v1/next?prettyPrint=false&fields=contents
+Content-Type: application/json
+
+{"context":{"client":{"clientName":"WEB_REMIX","clientVersion":"1.20261110.04.00","hl":"en","gl":"US"}},"videoId":"<VIDEOID>"}
+```
+
+Find the lyrics tab:
+
+```
+contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer
+  .watchNextTabbedResultsRenderer.tabs[]
+  .tabRenderer.endpoint.browseEndpoint
+```
+
+Use the endpoint whose `pageType` is `MUSIC_PAGE_TYPE_TRACK_LYRICS` (usually `browseId` starting with `MPLYt_`). Then:
+
+```
+POST https://music.youtube.com/youtubei/v1/browse?prettyPrint=false&fields=contents
+Content-Type: application/json
+
+{"context":{"client":{"clientName":"ANDROID_MUSIC","clientVersion":"7.27.52","hl":"en","gl":"US"}},"browseId":"MPLYt_..."}
+```
+
+The timed payload is:
+
+```json
+{
+  "contents": {
+    "elementRenderer": {
+      "newElement": {
+        "type": {
+          "componentType": {
+            "model": {
+              "timedLyricsModel": {
+                "lyricsData": {
+                  "timedLyricsData": [
+                    { "lyricLine": "Line", "cueRange": { "startTimeMilliseconds": "1234" } }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`startTimeMilliseconds` is a **string**; convert it with `tonumber`. Without a video ID, the provider searches YouTube Music with the songs-only filter and resolves the top candidates (each via `next` + `browse`). It caps the whole lookup at six requests.
+
+Notes:
+
+- `fields=contents` is important: it reduces the response from ~650 KB to 10–25 KB.
+- The Android client version matters. `7.27.52` works; `6.42.55` returns plain text and an unknown future version may 404. The provider retries once with `8.05.51`.
+- No `429`/`403` was observed in local testing, but this is a private API with no published limits or stability guarantee. Disable it with `SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius` if needed.
+- YouTube Music depends on the exact entity. The official Get Lucky video has 77 timed lines without `cueRange`; its art track (`4D7u5KF7SP8`) has 109 lines with cue ranges.
 
 ## Genius
 

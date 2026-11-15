@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here.
 
+## [0.2.0] - 2026-11-15
+
+### Added
+
+- YouTube Music (InnerTube) provider: exact `videoId`, `timedLyricsModel` cue ranges via the Android Music client, plain-text fallback when the entity has no cues, and an art-track search when the exact video only exposes text.
+- Provider race: LRCLIB, YouTube Music, NetEase and Genius now start in parallel; the first usable result is rendered provisionally and upgraded when a synced source arrives.
+- NetEase is enabled by default; the default provider list is `lrclib,ytmusic,netease,genius`.
+- Base-title query priority for `Song // Subtitle`, `Song | Album` and similar shapes.
+- Warm cache: after the first open, the next tracks are prefetched (`SPOTATUI_LYRICS_WARM`, default on).
+- Automatic display bias based on the UI tick rate, plus `SPOTATUI_LYRICS_BIAS_MS` override.
+- Calibration key `t`; fine offset steps `,`/`.` (`SPOTATUI_LYRICS_OFFSET_FINE`, default 50 ms); seek compensates for the display bias.
+- Playbar-style progress row using the same `⣿`/`⣉` glyphs, time and remaining time as the main playbar.
+- In-screen flash messages, because spotatui notifications are not drawn over plugin screens.
+
+### Changed
+
+- The lyrics window now follows a parallel race instead of a sequential provider chain.
+- Automatic bias is one UI tick by default (≈250 ms) instead of a fixed 120 ms.
+- The build now ships a YouTube Music provider and its live smoke check.
+
+### Fixed
+
+- The progress bar no longer uses the bordered `gauge` widget; it matches the main playbar's glyphs and ordering.
+- Calibration accounts for the automatic bias while playing and paused.
+- Plugin messages (calibration, match changes, errors) are visible on the plugin screen.
+
 ## [0.1.1] - 2026-11-15
 
 ### Added

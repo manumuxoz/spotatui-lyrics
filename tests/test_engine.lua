@@ -290,3 +290,87 @@ test("engine survives a provider that throws synchronously", function()
   assert_eq(engine.state.provider, "Fake")
   assert_true(#engine.state.lines > 0)
 end)
+
+test("engine shows a provisional plain result and upgrades to synced", function()
+  local h = Harness.new()
+  h:set_playback(track(), 1000, true)
+  local engine = Engine.new({ config = make_config(), http = require("ytlyrics.http") })
+  local deferred_done = nil
+  engine.provider_list = {
+    {
+      name = "FastPlain",
+      search = function(query, ctx, done)
+        done({
+          {
+            provider = "FastPlain",
+            title = query.title,
+            artist = query.artist,
+            duration_ms = 213000,
+            synced = false,
+            plain_text = "First line\nSecond line",
+          },
+        }, {})
+      end,
+    },
+    {
+      name = "SlowSynced",
+      search = function(query, ctx, done)
+        deferred_done = done
+      end,
+    },
+  }
+  engine.on_update = function() end
+  engine:lookup(h.playback_state)
+  assert_eq(engine.state.status, "ready")
+  assert_true(engine.state.provisional)
+  assert_true(engine.state.searching)
+  assert_eq(engine.state.provider, "FastPlain")
+
+  deferred_done({
+    {
+      provider = "SlowSynced",
+      title = "Si El Mundo Fuera Perfecto",
+      artist = "Guxo",
+      duration_ms = 213000,
+      synced = true,
+      lines = { { time_ms = 10000, text = "Synced line" } },
+    },
+  }, {})
+  assert_true(engine.state.synced)
+  assert_false(engine.state.provisional)
+  assert_false(engine.state.searching)
+  assert_eq(engine.state.provider, "SlowSynced")
+end)
+
+test("engine auto-bias follows the UI tick rate", function()
+  local h = Harness.new()
+  h:set_playback(track(), 0, true)
+  h.config_state.behavior.tick_rate_milliseconds = 250
+  local cfg = make_config()
+  cfg.bias_ms = -1
+  local engine = Engine.new({ config = cfg, http = require("ytlyrics.http") })
+  assert_eq(engine:bias_ms(), 250)
+
+  cfg.bias_ms = 120
+  assert_eq(engine:bias_ms(), 120)
+end)
+
+test("engine absolute offset and fine steps are persisted", function()
+  local h = Harness.new()
+  h:set_playback(track(), 0, true)
+  local engine = Engine.new({ config = make_config(), http = require("ytlyrics.http") })
+  engine.provider_list = {
+    {
+      name = "Fake",
+      search = function(query, ctx, done)
+        done({}, {})
+      end,
+    },
+  }
+  engine:lookup(h.playback_state)
+  engine:set_offset_absolute(1234)
+  assert_eq(engine.state.offset_ms, 1234)
+  assert_eq(h.storage["offset:GUXO0000001"], 1234)
+  engine:set_offset(-50)
+  assert_eq(engine.state.offset_ms, 1184)
+end)

@@ -145,3 +145,23 @@ test("metadata strips a version tag after a dash", function()
   assert_eq(info.artist, "Adele")
   assert_eq(info.versions[1], "live")
 end)
+
+test("metadata prioritizes a searchable base title before raw and swapped", function()
+  local info = parse("BIBERON, JOHNNYFUU - CAMINO RECTO // WALK A MILE", "biberon los poderes", 175000)
+  assert_eq(info.title, "CAMINO RECTO // WALK A MILE")
+  assert_eq(info.artist, "BIBERON, JOHNNYFUU")
+  assert_eq(info.queries[1].title, "CAMINO RECTO // WALK A MILE")
+  local base_queries = {}
+  for i = 1, math.min(#info.queries, 4) do
+    if info.queries[i].title == "CAMINO RECTO" then
+      base_queries[#base_queries + 1] = info.queries[i]
+    end
+  end
+  assert_true(#base_queries >= 2, "base title queries must be in the first four")
+  local artists = {}
+  for _, query in ipairs(base_queries) do
+    artists[query.artist] = true
+  end
+  assert_true(artists["BIBERON, JOHNNYFUU"] or artists["BIBERON"])
+  assert_true(artists[""])
+end)

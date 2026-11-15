@@ -17,6 +17,7 @@ Engine.__index = Engine
 
 local PROVIDERS = {
   lrclib = require("ytlyrics.providers.lrclib"),
+  ytmusic = require("ytlyrics.providers.youtube_music"),
   netease = require("ytlyrics.providers.netease"),
   genius = require("ytlyrics.providers.genius"),
 }
@@ -57,6 +58,7 @@ function Engine.new(opts)
     },
     last_debug = {},
     on_update = nil,
+    on_message = nil,
   }, Engine)
 
   for _, name in ipairs(self.config.providers) do
@@ -175,10 +177,14 @@ function Engine:apply_result(result, info, debug, extra)
     matched_artist = result and result.artist or nil,
     duration_ms = duration,
     timeout = extra.timeout == true,
+    provisional = extra.provisional == true,
+    searching = extra.searching == true,
   }
 
-  local key = (info and info.uri or "") .. "#" .. tostring(self.state.variant)
-  self.cache:set(key, util.copy(self.state))
+  if not extra.provisional then
+    local key = (info and info.uri or "") .. "#" .. tostring(self.state.variant)
+    self.cache:set(key, util.copy(self.state))
+  end
   self:notify_update()
 end
 
@@ -200,6 +206,8 @@ function Engine:finish_empty(info, debug, errors, extra)
     variant_count = self.state.variant_count or 1,
     duration_ms = info and info.duration_ms or 0,
     timeout = extra.timeout == true,
+    provisional = false,
+    searching = false,
   }
   local key = (info and info.uri or "") .. "#" .. tostring(self.state.variant)
   self.cache:set(key, util.copy(self.state))
@@ -318,6 +326,8 @@ function Engine:lookup(pb, opts)
     for i = 0, count - 1 do
       local query = info.queries[((variant - 1 + i) % count) + 1]
       query.duration_ms = info.duration_ms
+      query.video_id = info.video_id
+      query.uri = info.uri
       query.is_curator = (query.artist ~= nil and query.artist == info.channel_artist and info.channel_curator) or false
       queries[#queries + 1] = query
     end
@@ -327,6 +337,7 @@ function Engine:lookup(pb, opts)
   local best_synced, best_plain, best_any = nil, nil, nil
   local errors = {}
   local finished = false
+  local provisional_result = nil
 
   local function is_cancelled()
     return gen ~= self.generation or self.current_uri ~= uri
@@ -373,6 +384,23 @@ function Engine:lookup(pb, opts)
     return nil
   end
 
+  --- Show the first usable answer immediately while the other providers are
+  --- still racing. If a synced answer arrives later, apply_result upgrades it.
+  local function apply_provisional()
+    if finished or is_cancelled() or not best_any then
+      return
+    end
+    if best_any.score.total < 0.62 then
+      return
+    end
+    if provisional_result and best_any.effective <= provisional_result.effective + 0.01 then
+      return
+    end
+    provisional_result = best_any
+    debug[#debug + 1] = "provisional: " .. score.summary(best_any)
+    self:apply_result(best_any, info, debug, { provisional = true, searching = true })
+  end
+
   local function finish(extra)
     if finished or is_cancelled() then
       return
@@ -384,7 +412,11 @@ function Engine:lookup(pb, opts)
       if chosen.url then
         debug[#debug + 1] = "source: " .. chosen.url
       end
-      self:apply_result(chosen, info, debug, extra)
+      self:apply_result(chosen, info, debug, {
+        timeout = extra and extra.timeout == true,
+        provisional = false,
+        searching = false,
+      })
     else
       debug[#debug + 1] = "no acceptable match"
       self:finish_empty(info, debug, errors, extra)
@@ -410,25 +442,36 @@ function Engine:lookup(pb, opts)
       query.artist ~= "" and query.artist or "(title only)"
     )
 
-    local provider_index = 0
+    local pending = #self.provider_list
+    local loop_done = false
+    local query_finished = false
 
-    local function step()
-      if finished or is_cancelled() then
+    local function maybe_query_done()
+      if query_finished or finished or is_cancelled() then
         return
       end
-      provider_index = provider_index + 1
-      local provider = self.provider_list[provider_index]
-      if not provider then
-        if best_synced and best_synced.score.total >= 0.78 then
-          finish()
-        elseif best_plain and best_plain.score.total >= 0.85 then
-          -- A strong plain-text match from the broad provider is better than
-          -- spending another five seconds chasing timestamps in query 2.
-          finish()
-        else
-          run_query(index + 1)
-        end
+      if not loop_done or pending > 0 then
         return
+      end
+      query_finished = true
+      if best_synced and best_synced.score.total >= 0.78 then
+        finish()
+        return
+      end
+      if best_plain and best_plain.score.total >= 0.85 then
+        finish()
+        return
+      end
+      if index < query_limit then
+        run_query(index + 1)
+      else
+        finish()
+      end
+    end
+
+    for _, provider in ipairs(self.provider_list) do
+      if finished or is_cancelled() then
+        break
       end
 
       local ctx = {
@@ -437,46 +480,53 @@ function Engine:lookup(pb, opts)
         max_body_bytes = config.max_body_bytes,
         debug = debug,
         is_cancelled = is_cancelled,
+        video_id = info.video_id,
+        duration_ms = info.duration_ms,
       }
-
+      local completed = false
       self:debug("provider " .. provider.name .. " for query " .. index)
-      local handled = false
-      local function handle_provider_results(results, provider_errors)
-        handled = true
-        if finished or is_cancelled() then
+
+      local function done_cb(results, provider_errors)
+        if completed then
           return
         end
-        for _, message in ipairs(provider_errors or {}) do
-          errors[#errors + 1] = message
-          debug[#debug + 1] = "  ! " .. message
+        completed = true
+        pending = pending - 1
+
+        if not finished and not is_cancelled() then
+          for _, message in ipairs(provider_errors or {}) do
+            errors[#errors + 1] = message
+            debug[#debug + 1] = "  ! " .. message
+          end
+          for _, result in ipairs(results or {}) do
+            consider(result, query)
+            debug[#debug + 1] = string.format(
+              "  · %s: %s — %s · %.0f%%%s",
+              result.provider,
+              result.title,
+              result.artist ~= "" and result.artist or "?",
+              (result.score and result.score.total or 0) * 100,
+              result.synced and " · synced" or ""
+            )
+          end
+          if best_synced and best_synced.score.total >= 0.78 then
+            finish()
+            return
+          end
+          apply_provisional()
         end
-        for _, result in ipairs(results or {}) do
-          consider(result, query)
-          debug[#debug + 1] = string.format(
-            "  · %s: %s — %s · %.0f%%%s",
-            result.provider,
-            result.title,
-            result.artist ~= "" and result.artist or "?",
-            (result.score and result.score.total or 0) * 100,
-            result.synced and " · synced" or ""
-          )
-        end
-        if best_synced and best_synced.score.total >= 0.78 then
-          finish()
-          return
-        end
-        step()
+
+        maybe_query_done()
       end
 
-      local ok, search_err = pcall(provider.search, query, ctx, handle_provider_results)
-      if not ok and not handled then
-        errors[#errors + 1] = provider.name .. ": " .. tostring(search_err)
-        debug[#debug + 1] = "  ! " .. provider.name .. " crashed: " .. tostring(search_err)
-        step()
+      local ok, search_err = pcall(provider.search, query, ctx, done_cb)
+      if not ok and not completed then
+        done_cb({}, { provider.name .. ": " .. tostring(search_err) })
       end
     end
 
-    step()
+    loop_done = true
+    maybe_query_done()
   end
 
   spotatui.set_timeout(config.timeout_ms, function()
@@ -512,17 +562,30 @@ function Engine:next_variant(pb)
   local key = (self.info.uri or "") .. "#" .. tostring(next_variant)
   self.cache:remove(key)
   self:lookup(pb, { force = true })
-  spotatui.notify(i18n.fmt("match_changed", next_variant, count), 3)
+  local message = i18n.fmt("match_changed", next_variant, count)
+  if self.on_message then
+    self.on_message(message, 3)
+  else
+    spotatui.notify(message, 3)
+  end
+end
+
+function Engine:set_offset_absolute(value)
+  if not self.info then
+    return
+  end
+  local offset = util.clamp(math.floor(tonumber(value) or 0), -30000, 30000)
+  self.state.offset_ms = offset
+  self:save_offset(self.info, offset)
+  self:notify_update()
+  return offset
 end
 
 function Engine:set_offset(delta)
   if not self.info then
     return
   end
-  local offset = util.clamp((self.state.offset_ms or 0) + delta, -30000, 30000)
-  self.state.offset_ms = offset
-  self:save_offset(self.info, offset)
-  self:notify_update()
+  return self:set_offset_absolute((self.state.offset_ms or 0) + delta)
 end
 
 function Engine:reset_offset()
@@ -534,21 +597,44 @@ function Engine:reset_offset()
   self:notify_update()
 end
 
+--- Automatic bias: the timer sees the playback snapshot from the previous
+--- UI tick, so add one tick to the progress used for the highlight. A
+--- user-provided SPOTATUI_LYRICS_BIAS_MS (>= 0) always wins.
+function Engine:bias_ms()
+  if self.config.bias_ms and self.config.bias_ms >= 0 then
+    return self.config.bias_ms
+  end
+  local ok, cfg = pcall(spotatui.config)
+  local tick = ok and cfg and cfg.behavior and tonumber(cfg.behavior.tick_rate_milliseconds) or 250
+  return util.clamp(math.floor(tick), 0, 500)
+end
+
 function Engine:progress(pb)
   local progress = pb and tonumber(pb.progress_ms) or 0
-  return math.max(0, progress + (self.config.bias_ms or 0))
+  local bias = 0
+  if pb and pb.is_playing ~= false then
+    bias = self:bias_ms()
+  end
+  return math.max(0, progress + bias)
 end
 
 function Engine:current_index(pb)
   return lrc.line_index(self.state.lines, self:progress(pb), self.state.offset_ms or 0)
 end
 
-function Engine:seek_time(index)
+function Engine:seek_time(index, pb)
   local line = self.state.lines and self.state.lines[index]
   if not line then
     return nil
   end
-  return math.max(0, line.time_ms + (self.state.offset_ms or 0))
+  -- The offset is expressed in the same display space as the highlight, which
+  -- includes the automatic bias while playing. Remove it to get a raw player
+  -- position.
+  local bias = 0
+  if pb == nil or pb.is_playing ~= false then
+    bias = self:bias_ms()
+  end
+  return math.max(0, line.time_ms + (self.state.offset_ms or 0) - bias)
 end
 
 function Engine:status_line()
@@ -581,6 +667,7 @@ function Engine:debug_lines()
   lines[#lines + 1] = "uri: " .. tostring(self.current_uri)
   lines[#lines + 1] = "provider: " .. tostring(self.state.provider)
   lines[#lines + 1] = "synced: " .. tostring(self.state.synced) .. " · estimated: " .. tostring(self.state.estimated)
+  lines[#lines + 1] = "provisional: " .. tostring(self.state.provisional) .. " · searching: " .. tostring(self.state.searching)
   lines[#lines + 1] = "offset: " .. tostring(self.state.offset_ms) .. " ms"
   lines[#lines + 1] = "variant: " .. tostring(self.state.variant) .. "/" .. tostring(self.state.variant_count)
   lines[#lines + 1] = "lines: " .. tostring(#(self.state.lines or {}))

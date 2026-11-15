@@ -447,6 +447,11 @@ local function title_variants(clean_title, raw_title)
   if no_parens ~= clean_title and #no_parens >= 4 then
     add_unique(titles, util.trim(no_parens))
   end
+  local slash_left, slash_right = clean_title:match("^(.-)%s*//%s*(.+)$")
+  if slash_left and slash_right then
+    add_unique(titles, util.trim(slash_left))
+    add_unique(titles, util.trim(slash_right))
+  end
   local pipe_left, pipe_right = clean_title:match("^(.-)%s*|%s*(.+)$")
   if pipe_left and pipe_right then
     add_unique(titles, util.trim(pipe_left))
@@ -558,9 +563,22 @@ function M.parse(track)
   if primary_artist then
     add_query(queries, primary_title, primary_artist, "title + artist")
   end
-  -- LRCLIB often carries the raw YouTube row verbatim, so try it before the
-  -- more speculative variants.
-  add_query(queries, raw_title, raw_artist, "raw metadata")
+
+  -- A title such as "Artist - Song // Subtitle" or "Song | Album" has a much
+  -- more searchable base title. Try it before the raw/swapped guesses.
+  local base_title = titles[2]
+  if base_title and base_title ~= primary_title then
+    add_query(queries, base_title, primary_artist or channel_artist, "base title + artist")
+    local base_artist_variants = 0
+    for _, artist in ipairs(artists_list) do
+      if artist ~= primary_artist and artist ~= channel_artist and base_artist_variants < 1 then
+        add_query(queries, base_title, artist, "base title + artist variant")
+        base_artist_variants = base_artist_variants + 1
+      end
+    end
+    add_query(queries, base_title, "", "base title only")
+  end
+
   if swapped_title and swapped_artist then
     add_query(queries, swapped_title, swapped_artist, "swapped artist/title")
   end
@@ -575,10 +593,15 @@ function M.parse(track)
       add_query(queries, primary_title, artist, "title + artist variant")
     end
   end
-  for i = 2, #titles do
+  -- LRCLIB often carries the raw YouTube row verbatim.
+  add_query(queries, raw_title, raw_artist, "raw metadata")
+  add_query(queries, primary_title, "", "title only")
+  if base_title and base_title ~= primary_title then
+    add_query(queries, base_title, "", "base title only")
+  end
+  for i = 3, #titles do
     add_query(queries, titles[i], primary_artist or channel_artist, "title variant + artist")
   end
-  add_query(queries, primary_title, "", "title only")
 
   local is_music = true
   local reason = "title looks musical"

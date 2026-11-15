@@ -25,6 +25,10 @@ engine.on_update = function()
   ui:render(false)
 end
 
+engine.on_message = function(message, ttl)
+  ui:message(message, ttl)
+end
+
 ui:register()
 
 local function guard(name, fn)

@@ -55,6 +55,8 @@ Si no mueves `lyrics_view`, spotatui ignora el binding de `B` con un aviso en el
 | `k` / `Flecha arriba` | Subir y pausar el seguimiento |
 | `f` | Volver a seguir la reproducción |
 | `s` | Saltar la reproducción a la línea seleccionada |
+| `t` | Calibrar: la línea seleccionada empieza en la posición actual |
+| `,` / `.` | Ajuste fino de 50 ms |
 | `[` / `]` | Adelantar / atrasar la letra 250 ms |
 | `{` / `}` | Adelantar / atrasar la letra 1 s |
 | `0` | Reiniciar el desfase de este vídeo |
@@ -70,13 +72,14 @@ El seguimiento se reanuda solo 8 segundos después del último scroll. El desfas
 | Proveedor | Timestamps | Cuenta | Estado | Por defecto |
 |---|---|---|---|---|
 | **LRCLIB** | Sí (LRC) | Ninguna | API abierta y documentada | **Sí** |
+| **YouTube Music** | Sí, si el art track tiene cue ranges | Ninguna | API InnerTube no oficial; `videoId` exacto | **Sí** |
+| **NetEase Cloud Music** | Sí (LRC/YRC) | Ninguna | Endpoints no oficiales; puede estar bloqueado por región | **Sí** |
 | **Genius** | No (texto plano) | Ninguna | Endpoint web público, sin API oficial de letras | **Sí** |
-| **NetEase Cloud Music** | Sí (LRC/YRC) | Ninguna | Endpoints no oficiales; puede estar bloqueado por región | No |
 
-Genius no tiene tiempos: el plugin estima una línea de tiempo y la marca como `texto · estimado`. NetEase está desactivado por defecto por ser un endpoint no oficial; actívalo para más cobertura sincronizada:
+Los proveedores se consultan **en paralelo**: la primera letra usable se pinta al instante y, si luego llega una sincronizada, se actualiza. YouTube Music resuelve el `videoId` exacto; su cliente Android devuelve timestamps para art tracks, aunque algunos vídeos oficiales solo tienen texto (el plugin estima la línea de tiempo). Genius no tiene tiempos. NetEase añade cobertura latina/asiática. Las APIs no oficiales se pueden desactivar con `SPOTATUI_LYRICS_PROVIDERS=lrclib,genius`:
 
 ```bash
-SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius spotatui
+SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius spotatui
 ```
 
 ## Configuración
@@ -85,12 +88,14 @@ Variables de entorno, leídas al cargar el plugin:
 
 | Variable | Por defecto | Significado |
 |---|---|---|
-| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,genius` | Orden de proveedores separado por comas. Añade `netease`. |
+| `SPOTATUI_LYRICS_PROVIDERS` | `lrclib,ytmusic,netease,genius` | Orden de proveedores separado por comas. Quita los que no quieras (p. ej. `lrclib,genius`). |
 | `SPOTATUI_LYRICS_SOURCES` | `youtube` | `youtube` o `all`. |
 | `SPOTATUI_LYRICS_PREFETCH` | `0` | `1` busca letras en cada cambio de pista, sin esperar a abrir la pantalla. |
+| `SPOTATUI_LYRICS_WARM` | `1` | Tras la primera apertura, precarga las siguientes pistas para que la pantalla abra al instante. `0` lo desactiva. |
 | `SPOTATUI_LYRICS_CONTEXT` | `6` | Líneas visibles arriba y abajo de la actual (2–20). |
 | `SPOTATUI_LYRICS_OFFSET_STEP` | `250` | Paso del desfase en ms para `[` / `]`. |
-| `SPOTATUI_LYRICS_BIAS_MS` | `120` | Compensa el retraso de un tick del snapshot de reproducción. |
+| `SPOTATUI_LYRICS_OFFSET_FINE` | `50` | Paso fino en ms para `,` / `.`. |
+| `SPOTATUI_LYRICS_BIAS_MS` | auto | Compensa el retraso de un tick del snapshot de reproducción. Auto = un tick (≈250 ms); un número lo sobrescribe. |
 | `SPOTATUI_LYRICS_TIMEOUT` | `15000` | Límite total de la búsqueda en ms. |
 | `SPOTATUI_LYRICS_MAX_QUERIES` | `4` | Variantes de metadatos por búsqueda (1–8). |
 | `SPOTATUI_LYRICS_ESTIMATE` | `1` | `0` muestra el texto plano sin línea de tiempo estimada. |
@@ -104,14 +109,14 @@ Ejemplo:
 ```bash
 export SPOTATUI_LYRICS_LANG=es
 export SPOTATUI_LYRICS_CONTEXT=8
-export SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius
+export SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius
 spotatui
 ```
 
 PowerShell:
 
 ```powershell
-$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,netease,genius"
+$env:SPOTATUI_LYRICS_PROVIDERS = "lrclib,ytmusic,netease,genius"
 spotatui
 ```
 
@@ -119,19 +124,20 @@ spotatui
 
 - Solo se envían **título, artistas candidatos y duración** a los proveedores activos. No hay cuenta, token, telemetría ni analítica.
 - Las letras viven **solo en memoria**. El desfase y la variante elegida se guardan en el almacén JSON por plugin de spotatui; las letras nunca se escriben en disco.
-- Con `SPOTATUI_LYRICS_PREFETCH=0` (por defecto), no sale nada de tu máquina hasta que abres la pantalla.
-- LRCLIB es una base comunitaria abierta. Genius y NetEase son endpoints web públicos usados por muchos clientes de letras; pueden cambiar, limitar o bloquear peticiones. Desactívalos si prefieres solo LRCLIB.
+- Abrir la pantalla es el punto de consentimiento. No se consulta nada antes de la primera apertura. Después, el plugin precarga las siguientes pistas para que abra al instante; usa `SPOTATUI_LYRICS_WARM=0` para desactivarlo.
+- LRCLIB es una base comunitaria abierta. YouTube Music (InnerTube), Genius y NetEase son endpoints web públicos usados por muchos clientes de letras; pueden cambiar, limitar o bloquear peticiones. Desactívalos si prefieres solo LRCLIB.
 - Las letras tienen derechos de autor. El plugin las muestra; no las descarga, empaqueta, cachea en disco ni redistribuye.
 - Este proyecto no está afiliado a spotatui, Spotify, YouTube, LRCLIB, Genius ni NetEase.
 
 ## Limitaciones
 
 - La pantalla es propia: la API de plugins no permite inyectar letras en la vista integrada ni apropiarse de `B` sin cambiar la configuración.
-- Las pantallas de plugin no dibujan la playbar; por eso hay un medidor de progreso propio.
+- Las pantallas de plugin no dibujan la playbar de la app; por eso hay una línea de progreso propia con el mismo estilo (`⣿`/`⣉`, tiempo y restante).
 - Genius no tiene timestamps; la línea de tiempo es estimada y se etiqueta como tal. Si hay una fuente sincronizada, se prefiere.
 - Si ningún proveedor tiene la canción, la pantalla lo dice. `m` prueba otras variantes; `i` muestra las consultas y los errores.
 - No se ejecuta `yt-dlp` para enriquecer metadatos: bloquearía la UI o añadiría procesos y archivos temporales. El parser cubre las formas habituales de YouTube.
 - Los vídeos muy largos (mixes, podcasts, streams) se omiten como no musicales. Pulsa `r` para buscar igualmente.
+- YouTube Music depende de la entidad exacta: los art tracks suelen traer timestamps; algunos vídeos oficiales solo texto. La API InnerTube no es oficial y puede cambiar.
 
 ## Problemas frecuentes
 
@@ -140,7 +146,7 @@ spotatui
 1. Pulsa `i`: verás los metadatos crudos, cada consulta, cada petición y las puntuaciones.
 2. Pulsa `m` para probar otra variante.
 3. Pulsa `r` para reintentar desde la coincidencia 1.
-4. Activa NetEase: `SPOTATUI_LYRICS_PROVIDERS=lrclib,netease,genius spotatui`.
+4. Si desactivaste NetEase, actívalo: `SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius spotatui`.
 5. Comprueba que el proveedor sea accesible desde tu red.
 
 **El plugin no carga**

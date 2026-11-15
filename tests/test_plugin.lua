@@ -61,6 +61,15 @@ local function setup()
   h:set_playback(TRACK, 0, true)
   h:load_plugin(".")
   package.loaded["ytlyrics.i18n"].lang = "en"
+  -- Keep this integration test focused on the LRCLIB/Genius flow; YouTube
+  -- Music has its own provider tests below.
+  local providers = {}
+  for _, provider in ipairs(h.plugin.engine.provider_list) do
+    if provider.id ~= "ytmusic" then
+      providers[#providers + 1] = provider
+    end
+  end
+  h.plugin.engine.provider_list = providers
   h:emit("start")
   return h
 end
@@ -110,7 +119,7 @@ test("plugin cycles match variants and stores the choice", function()
   local spec = h.screens["ytlyrics"]
   spec.on_key("m")
   assert_eq(h.storage["variant:GUXO0000001"], 2)
-  assert_true(#h.notifications > 0)
+  assert_not_nil(h.plugin.ui.flash_message)
 end)
 
 test("plugin opens the debug popup", function()
@@ -140,4 +149,69 @@ test("plugin renders a loading state during a deferred lookup", function()
   h:respond(1, { status = 200, body = GENIUS_PAGE })
   text = h:screen_text("ytlyrics")
   assert_contains(text, "Synthetic line one")
+end)
+
+test("plugin calibrates the offset to the selected line", function()
+  local h = setup()
+  h:run_command("ytlyrics_open")
+  local spec = h.screens["ytlyrics"]
+  local engine = h.plugin.engine
+  local index = engine:current_index(h.playback_state)
+  local line = engine.state.lines[index]
+  spec.on_key("t")
+  local bias = engine:bias_ms()
+  assert_eq(h.storage["offset:GUXO0000001"], bias - line.time_ms)
+
+  spec.on_key(".")
+  assert_eq(h.storage["offset:GUXO0000001"], bias - line.time_ms + 50)
+  spec.on_key(",")
+  assert_eq(h.storage["offset:GUXO0000001"], bias - line.time_ms)
+end)
+
+test("plugin warms the next track after the first open", function()
+  local h = setup()
+  h:run_command("ytlyrics_open")
+  local before = #h.http_requests
+  h:set_playback({
+    uri = "youtube:OTHER000001",
+    name = "Other - Another Song",
+    artists = { "Other" },
+    duration_ms = 200000,
+  }, 0, true)
+  h:emit("track_change", h.playback_state)
+  assert_true(#h.http_requests > before)
+end)
+
+test("plugin shows provisional lyrics and upgrades them to synced", function()
+  local h = setup()
+  for _, route in ipairs(h.http_routes) do
+    if route.pattern == "/api/get" then
+      route.response = "defer"
+    end
+  end
+  local previous_json = h.json_handler
+  h.json_handler = function(body)
+    if body == "LRCLIB_SYNCED" then
+      return {
+        id = 1,
+        trackName = "Si El Mundo Fuera Perfecto",
+        artistName = "Guxo",
+        duration = 213,
+        syncedLyrics = "[00:01.00]Synthetic synced one\n[00:02.00]Synthetic synced two",
+      }
+    end
+    return previous_json(body)
+  end
+
+  h:run_command("ytlyrics_open")
+  local text = h:screen_text("ytlyrics")
+  assert_contains(text, "Synthetic line one")
+  assert_contains(text, "looking for synced lyrics")
+  assert_true(#h.pending > 0)
+
+  h:respond(1, { status = 200, body = "LRCLIB_SYNCED" })
+  text = h:screen_text("ytlyrics")
+  assert_contains(text, "LRCLIB")
+  assert_contains(text, "Synthetic synced one")
+  assert_contains(text, "synced")
 end)

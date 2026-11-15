@@ -2,6 +2,7 @@ local Harness = require("tests.harness")
 local lrclib = require("ytlyrics.providers.lrclib")
 local netease = require("ytlyrics.providers.netease")
 local genius = require("ytlyrics.providers.genius")
+local ytmusic = require("ytlyrics.providers.youtube_music")
 
 local function make_ctx(h)
   return {
@@ -191,4 +192,213 @@ test("genius retries with the browser POST override when blocked", function()
     end
   end
   assert_true(used_override)
+end)
+
+test("youtube music resolves a direct video and returns cue ranges", function()
+  local h = Harness.new()
+  h.json_handler = function(body)
+    if body == "YTM_NEXT" then
+      return {
+        contents = {
+          singleColumnMusicWatchNextResultsRenderer = {
+            tabbedRenderer = {
+              watchNextTabbedResultsRenderer = {
+                tabs = {
+                  {
+                    tabRenderer = {
+                      endpoint = {
+                        browseEndpoint = {
+                          browseId = "MPLYt_TEST",
+                          browseEndpointContextSupportedConfigs = {
+                            browseEndpointContextMusicConfig = {
+                              pageType = "MUSIC_PAGE_TYPE_TRACK_LYRICS",
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+    elseif body == "YTM_BROWSE" then
+      return {
+        contents = {
+          elementRenderer = {
+            newElement = {
+              type = {
+                componentType = {
+                  model = {
+                    timedLyricsModel = {
+                      lyricsData = {
+                        timedLyricsData = {
+                          { lyricLine = "Synthetic timed one", cueRange = { startTimeMilliseconds = "1000" } },
+                          { lyricLine = "Synthetic timed two", cueRange = { startTimeMilliseconds = "2500" } },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+    end
+    error("unexpected body " .. body)
+  end
+  h:route_http("music.youtube.com/youtubei/v1/next", { status = 200, body = "YTM_NEXT" })
+  h:route_http("music.youtube.com/youtubei/v1/browse", { status = 200, body = "YTM_BROWSE" })
+
+  local results, errors
+  ytmusic.search({
+    video_id = "VID123",
+    title = "Song",
+    artist = "Artist",
+    duration_ms = 200000,
+  }, make_ctx(h), function(r, e) results, errors = r, e end)
+
+  assert_eq(#errors, 0)
+  assert_eq(#results, 1)
+  assert_true(results[1].synced)
+  assert_eq(results[1].lines[1].time_ms, 1000)
+  assert_eq(results[1].lines[2].text, "Synthetic timed two")
+end)
+
+test("youtube music degrades to plain text without cue ranges", function()
+  local h = Harness.new()
+  h.json_handler = function(body)
+    if body == "YTM_NEXT" then
+      return {
+        contents = {
+          singleColumnMusicWatchNextResultsRenderer = {
+            tabbedRenderer = {
+              watchNextTabbedResultsRenderer = {
+                tabs = { { tabRenderer = { endpoint = { browseEndpoint = { browseId = "MPLYt_TEST" } } } } },
+              },
+            },
+          },
+        },
+      }
+    elseif body == "YTM_BROWSE" then
+      return {
+        contents = {
+          elementRenderer = {
+            newElement = {
+              type = {
+                componentType = {
+                  model = {
+                    timedLyricsModel = {
+                      lyricsData = {
+                        timedLyricsData = {
+                          { lyricLine = "Synthetic plain one" },
+                          { lyricLine = "Synthetic plain two" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }
+    elseif body == "YTM_SEARCH_EMPTY" then
+      return {}
+    end
+    error("unexpected body " .. body)
+  end
+  h:route_http("music.youtube.com/youtubei/v1/next", { status = 200, body = "YTM_NEXT" })
+  h:route_http("music.youtube.com/youtubei/v1/browse", { status = 200, body = "YTM_BROWSE" })
+  h:route_http("music.youtube.com/youtubei/v1/search", { status = 200, body = "YTM_SEARCH_EMPTY" })
+
+  local results
+  ytmusic.search({ video_id = "VID123", title = "Song", artist = "Artist", duration_ms = 200000 }, make_ctx(h), function(r)
+    results = r
+  end)
+  assert_eq(#results, 1)
+  assert_false(results[1].synced)
+  assert_contains(results[1].plain_text, "Synthetic plain one")
+end)
+
+test("youtube music searches for an art track when the exact video has only text", function()
+  local h = Harness.new()
+  h.json_handler = function(body)
+    if body == "YTM_NEXT_DIRECT" then
+      return {
+        contents = { singleColumnMusicWatchNextResultsRenderer = { tabbedRenderer = {
+          watchNextTabbedResultsRenderer = { tabs = { { tabRenderer = { endpoint = { browseEndpoint = {
+            browseId = "MPLYt_DIRECT",
+            browseEndpointContextSupportedConfigs = { browseEndpointContextMusicConfig = {
+              pageType = "MUSIC_PAGE_TYPE_TRACK_LYRICS",
+            } },
+          } } } } } },
+        } } },
+      }
+    elseif body == "YTM_BROWSE_PLAIN" then
+      return { contents = { elementRenderer = { newElement = { type = { componentType = { model = {
+        timedLyricsModel = { lyricsData = { timedLyricsData = {
+          { lyricLine = "Plain one" }, { lyricLine = "Plain two" },
+        } } },
+      } } } } } } }
+    elseif body == "YTM_SEARCH" then
+      return { contents = { sectionListRenderer = { contents = {
+        { musicShelfRenderer = { contents = {
+          { musicResponsiveListItemRenderer = {
+            playlistItemData = { videoId = "ART456" },
+            flexColumns = {
+              { musicResponsiveListItemFlexColumnRenderer = { text = { runs = { { text = "Song" } } } } },
+              { musicResponsiveListItemFlexColumnRenderer = { text = { runs = { { text = "Artist" } } } } },
+            },
+            fixedColumns = {
+              { musicResponsiveListItemFixedColumnRenderer = { text = { runs = { { text = "3:20" } } } } },
+            },
+          } },
+        } } },
+      } } } }
+    elseif body == "YTM_NEXT_ART" then
+      return { contents = { singleColumnMusicWatchNextResultsRenderer = { tabbedRenderer = {
+        watchNextTabbedResultsRenderer = { tabs = { { tabRenderer = { endpoint = { browseEndpoint = {
+          browseId = "MPLYt_ART",
+          browseEndpointContextSupportedConfigs = { browseEndpointContextMusicConfig = {
+            pageType = "MUSIC_PAGE_TYPE_TRACK_LYRICS",
+          } },
+        } } } } } },
+      } } } }
+    elseif body == "YTM_BROWSE_SYNCED" then
+      return { contents = { elementRenderer = { newElement = { type = { componentType = { model = {
+        timedLyricsModel = { lyricsData = { timedLyricsData = {
+          { lyricLine = "Synced one", cueRange = { startTimeMilliseconds = "1000" } },
+          { lyricLine = "Synced two", cueRange = { startTimeMilliseconds = "2000" } },
+        } } },
+      } } } } } } }
+    end
+    error("unexpected body " .. body)
+  end
+
+  h:route_http(function(_, _, body) return body and body:find('"videoId":"VID123"', 1, true) ~= nil end,
+    { status = 200, body = "YTM_NEXT_DIRECT" })
+  h:route_http(function(_, _, body) return body and body:find('"browseId":"MPLYt_DIRECT"', 1, true) ~= nil end,
+    { status = 200, body = "YTM_BROWSE_PLAIN" })
+  h:route_http("music.youtube.com/youtubei/v1/search", { status = 200, body = "YTM_SEARCH" })
+  h:route_http(function(_, _, body) return body and body:find('"videoId":"ART456"', 1, true) ~= nil end,
+    { status = 200, body = "YTM_NEXT_ART" })
+  h:route_http(function(_, _, body) return body and body:find('"browseId":"MPLYt_ART"', 1, true) ~= nil end,
+    { status = 200, body = "YTM_BROWSE_SYNCED" })
+
+  local results
+  ytmusic.search({ video_id = "VID123", title = "Song", artist = "Artist", duration_ms = 200000 }, make_ctx(h), function(r)
+    results = r
+  end)
+  local synced = 0
+  for _, result in ipairs(results or {}) do
+    if result.synced then
+      synced = synced + 1
+      assert_eq(result.lines[1].time_ms, 1000)
+    end
+  end
+  assert_true(synced >= 1, "the art-track fallback must produce a synced result")
 end)
