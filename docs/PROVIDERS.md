@@ -130,7 +130,7 @@ The timed payload is:
 }
 ```
 
-`startTimeMilliseconds` is a **string**; convert it with `tonumber`. Without a video ID, the provider searches YouTube Music with the songs-only filter and resolves the top candidates (each via `next` + `browse`). It caps the whole lookup at six requests.
+`startTimeMilliseconds` is a **string**; convert it with `tonumber`. Without a video ID, the provider searches YouTube Music with the songs-only filter and resolves the top candidates (each via `next` + `browse`). It caps the whole lookup at seven requests.
 
 Notes:
 
