@@ -83,7 +83,7 @@ Para calibrar exacto, pausa o salta al momento en que empieza la línea, selecci
 Los proveedores se consultan **en paralelo**: la primera letra usable se pinta al instante y, si luego llega una sincronizada, se actualiza. YouTube Music resuelve el `videoId` exacto; su cliente Android devuelve timestamps para art tracks, aunque algunos vídeos oficiales solo tienen texto (el plugin estima la línea de tiempo). Genius no tiene tiempos. NetEase añade cobertura latina/asiática. Las APIs no oficiales se pueden desactivar con `SPOTATUI_LYRICS_PROVIDERS=lrclib,genius`:
 
 ```bash
-SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius spotatui
+SPOTATUI_LYRICS_PROVIDERS=lrclib,lrcmux,ytmusic,netease,genius spotatui
 ```
 
 ## Configuración
@@ -150,7 +150,7 @@ spotatui
 1. Pulsa `i`: verás los metadatos crudos, cada consulta, cada petición y las puntuaciones.
 2. Pulsa `m` para probar otra variante.
 3. Pulsa `r` para reintentar desde la coincidencia 1.
-4. Si desactivaste NetEase, actívalo: `SPOTATUI_LYRICS_PROVIDERS=lrclib,ytmusic,netease,genius spotatui`.
+4. Si desactivaste NetEase, actívalo: `SPOTATUI_LYRICS_PROVIDERS=lrclib,lrcmux,ytmusic,netease,genius spotatui`.
 5. Comprueba que el proveedor sea accesible desde tu red.
 
 **El plugin no carga**
