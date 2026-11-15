@@ -222,10 +222,18 @@ spotatui
 
 **The plugin does not load**
 
+Run the installer doctor:
+
+```bash
+~/.config/spotatui/plugins/spotatui-lyrics/scripts/doctor.sh
+```
+
+It checks the spotatui version, the installed files, `plugins.lock`, the `ytlyrics_open` binding, the running instance and the log. Add `--network` to test the provider endpoints too.
+
 - Check the spotatui version: `spotatui --version` (0.48+).
 - Check `spotatui plugin list`.
 - Look at the log printed at startup (`Logging to: ...`); a load error appears as `plugin 'spotatui-lyrics' failed to load`.
-- Restart spotatui after installing or editing the plugin; there is no hot reload.
+- **Restart spotatui after installing or changing the config.** Plugins load at startup; a running instance that says `no lua plugin files found` will keep using the built-in lyrics view until restarted.
 
 **The key does nothing**
 

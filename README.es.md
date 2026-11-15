@@ -145,10 +145,18 @@ spotatui
 
 **El plugin no carga**
 
+Ejecuta el diagnóstico del instalador:
+
+```bash
+~/.config/spotatui/plugins/spotatui-lyrics/scripts/doctor.sh
+```
+
+Comprueba la versión de spotatui, los archivos instalados, `plugins.lock`, el binding `ytlyrics_open`, la instancia en ejecución y el log. Añade `--network` para probar también los proveedores.
+
 - `spotatui --version` debe ser 0.48 o superior.
 - `spotatui plugin list`.
 - Mira el log que spotatui imprime al arrancar (`Logging to: ...`).
-- Reinicia spotatui; no hay hot reload.
+- **Reinicia spotatui después de instalar o cambiar la configuración.** Los plugins se cargan al arrancar; una instancia abierta que dice `no lua plugin files found` seguirá usando la vista integrada hasta que la reinicies.
 
 **La tecla no hace nada**
 

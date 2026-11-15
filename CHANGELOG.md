@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## [0.1.1] - 2026-11-15
+
+### Added
+
+- `scripts/doctor.sh` installation diagnostic: binary/version, installed files, plugin registration, command binding, running instance and log checks.
+- Troubleshooting notes for the most common failure: spotatui was already open before the plugin was installed, so `B` still opened the built-in lyrics view until restart.
+
 ## [0.1.0] - 2026-11-13
 
 ### Added

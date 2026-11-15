@@ -29,6 +29,14 @@ Useful lines:
 
 ## Plugin does not load
 
+Run the doctor from the installed plugin:
+
+```bash
+~/.config/spotatui/plugins/spotatui-lyrics/scripts/doctor.sh
+```
+
+It checks the binary, installed files, `plugins.lock`, the command binding, the running instance and the latest log. `--network` also runs the provider smoke test.
+
 1. `spotatui --version` must be **0.48+**.
 2. `spotatui plugin --help` must work (the build has the `scripting` feature; official releases do).
 3. `spotatui plugin list` must show `spotatui-lyrics`.
