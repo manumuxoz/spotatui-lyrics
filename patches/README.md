@@ -28,12 +28,12 @@ audio-visualizer and MCP features. It needs the PipeWire development headers for
 
 ## Prebuilt asset
 
-Release `v0.4.1` includes:
+Release `v0.4.2` includes:
 
 - `spotatui-0.48.0-native-playbar-linux-x86_64`
 - `SHA256SUMS`
 
-The binary is Linux x86_64 and was built on 2026-11-15 with rustc 1.100.0.
+The binary is Linux x86_64 and was built on 2026-11-15 with rustc 1.100.0, including `audio-viz` and `audio-viz-cpal`.
 Keep `behavior.disable_auto_update: true` so an official update does not replace
 it. The original binary can be restored from your own backup.
 
